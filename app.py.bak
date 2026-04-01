@@ -1,0 +1,2554 @@
+import os
+import re
+import smtplib
+import subprocess
+import platform
+import ipaddress
+from datetime import datetime, timezone
+from email.message import EmailMessage
+
+import pandas as pd
+import streamlit as st
+from streamlit import config as st_config
+
+# Load tiger eye as favicon (PIL Image so Streamlit renders it as a real icon)
+try:
+    from PIL import Image as _PILImage
+    _favicon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tiger_eye.png")
+    _favicon = _PILImage.open(_favicon_path)
+except Exception:
+    _favicon = "🐯"  # fallback if file missing or PIL unavailable
+
+st.set_page_config(page_title="LSU Camera Health Tool", layout="wide", page_icon=_favicon)
+
+# Minimal dark/light switch in sidebar.
+if "theme_dark_mode" not in st.session_state:
+    st.session_state.theme_dark_mode = True
+theme_dark_mode = st.sidebar.toggle("Dark Mode", key="theme_dark_mode")
+
+theme_config = {
+    "theme.base": "dark" if theme_dark_mode else "light",
+    "theme.primaryColor": "#FDD023" if theme_dark_mode else "#461D7C",
+    "theme.backgroundColor": "#12161c" if theme_dark_mode else "#FFFFFF",
+    "theme.secondaryBackgroundColor": "#1b222c" if theme_dark_mode else "#F7F4FB",
+    "theme.textColor": "#E7ECF3" if theme_dark_mode else "#24183D",
+}
+for _theme_key, _theme_value in theme_config.items():
+    st_config.set_option(_theme_key, _theme_value)
+
+# ── LSU Purple & Gold Theme ─────────────────────────────────────────────────
+_LEGACY_THEME_CSS = """
+<style>
+/* ── Palette ── */
+/* Purple : #461D7C  |  Gold : #FDD023  |  Dark purple bg : #2D1259 */
+
+/* ── App background ── */
+[data-testid="stAppViewContainer"] {
+    background-color: #1a0a36;
+}
+[data-testid="stMain"] {
+    background-color: #1a0a36;
+}
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #2D1259 0%, #461D7C 100%);
+    border-right: 3px solid #FDD023;
+}
+[data-testid="stSidebar"] * {
+    color: #FDD023 !important;
+}
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] textarea {
+    background-color: #3a1a6e !important;
+    color: #FDD023 !important;
+    border: 1px solid #FDD023 !important;
+    border-radius: 6px !important;
+}
+[data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
+    color: #FDD023 !important;
+    font-weight: 700 !important;
+}
+[data-testid="stSidebar"] .stButton > button {
+    background-color: #FDD023 !important;
+    color: #461D7C !important;
+    font-weight: 700 !important;
+    border: none !important;
+    border-radius: 6px !important;
+    width: 100% !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #ffe566 !important;
+    color: #2D1259 !important;
+}
+
+/* ── Top header bar (page title area) ── */
+header[data-testid="stHeader"] {
+    background: #461D7C;
+    border-bottom: 3px solid #FDD023;
+}
+
+/* ── All text ── */
+html, body, [class*="css"] {
+    color: #f5f0ff;
+}
+h1, h2, h3 {
+    color: #FDD023 !important;
+    font-family: 'Georgia', serif;
+    letter-spacing: 0.5px;
+}
+p, label, div, span {
+    color: #e8deff;
+}
+
+/* ── Title ── */
+[data-testid="stTitle"] {
+    color: #FDD023 !important;
+    font-size: 2rem !important;
+    border-bottom: 2px solid #FDD023;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.8rem;
+}
+
+/* ── Metrics ── */
+[data-testid="stMetric"] {
+    background: #2D1259;
+    border: 1px solid #FDD023;
+    border-radius: 10px;
+    padding: 8px 10px !important;
+    min-width: 0;
+    overflow: hidden;
+}
+[data-testid="stMetricLabel"] > div {
+    color: #FDD023 !important;
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-testid="stMetricValue"] > div {
+    color: #ffffff !important;
+    font-size: clamp(1rem, 2vw, 1.6rem) !important;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Keyframe Animations ── */
+@keyframes btn-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(253,208,35,0.55); }
+    60%  { box-shadow: 0 0 0 7px rgba(253,208,35,0); }
+    100% { box-shadow: 0 0 0 0 rgba(253,208,35,0); }
+}
+@keyframes sidebar-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+@keyframes input-glow-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(253,208,35,0.15); }
+    50%       { box-shadow: 0 0 0 4px rgba(253,208,35,0.40); }
+}
+@keyframes tab-alert-blink {
+    0%, 100% { color: #ff6b6b !important; }
+    50%       { color: #ffb3b3 !important; }
+}
+@keyframes metric-lift {
+    0%   { transform: translateY(0px); }
+    50%  { transform: translateY(-2px); }
+    100% { transform: translateY(0px); }
+}
+
+/* ── Main buttons ── */
+[data-testid="stMain"] .stButton > button {
+    background-color: #461D7C !important;
+    color: #FDD023 !important;
+    border: 2px solid #FDD023 !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    transition: all 0.22s ease, box-shadow 0.22s ease, transform 0.18s ease !important;
+}
+[data-testid="stMain"] .stButton > button:hover {
+    background-color: #FDD023 !important;
+    color: #461D7C !important;
+    border-color: #FDD023 !important;
+    transform: translateY(-2px) scale(1.02) !important;
+    box-shadow: 0 6px 20px rgba(253,208,35,0.35) !important;
+}
+[data-testid="stMain"] .stButton > button:hover * {
+    color: #461D7C !important;
+}
+[data-testid="stMain"] .stButton > button:active {
+    transform: translateY(0px) scale(0.98) !important;
+    box-shadow: 0 2px 6px rgba(253,208,35,0.2) !important;
+}
+
+/* ── Text inputs ── */
+[data-testid="stMain"] input[type="text"],
+[data-testid="stMain"] textarea {
+    background-color: #2D1259 !important;
+    color: #f5f0ff !important;
+    border: 1px solid #7a52b5 !important;
+    border-radius: 6px !important;
+}
+[data-testid="stMain"] input[type="text"]:focus,
+[data-testid="stMain"] textarea:focus {
+    border-color: #FDD023 !important;
+    box-shadow: 0 0 0 2px rgba(253,208,35,0.3) !important;
+}
+
+/* ── Selectbox / Multiselect ── */
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stMultiSelect"] > div > div {
+    background-color: #2D1259 !important;
+    border: 1px solid #7a52b5 !important;
+    border-radius: 6px !important;
+    color: #f5f0ff !important;
+}
+/* Multiselect tags – gold bg needs purple text */
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+    background-color: #FDD023 !important;
+    color: #461D7C !important;
+    font-weight: 700;
+    border-radius: 4px !important;
+}
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
+    color: #461D7C !important;
+    fill: #461D7C !important;
+}
+/* Sidebar Load button (gold bg) – text must be purple */
+[data-testid="stSidebar"] .stButton > button * {
+    color: #461D7C !important;
+}
+/* ── Checkbox ── */
+[data-testid="stCheckbox"] label {
+    color: #f5f0ff !important;
+}
+
+/* ── Dataframe / table ── */
+[data-testid="stDataFrame"] > div {
+    border: 1px solid #461D7C;
+    border-radius: 8px;
+    overflow: hidden;
+}
+[data-testid="stDataFrame"] th {
+    background-color: #461D7C !important;
+    color: #FDD023 !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+}
+[data-testid="stDataFrame"] tr:nth-child(even) {
+    background-color: #2a1155 !important;
+}
+[data-testid="stDataFrame"] tr:hover {
+    background-color: #3d1a72 !important;
+}
+
+/* ── Success / error / info / warning banners ── */
+[data-testid="stAlert"] {
+    border-radius: 8px !important;
+}
+div[data-testid="stAlert"][data-baseweb="notification"][kind="positive"] {
+    background-color: #1a3d1a !important;
+    border-left: 4px solid #4caf50 !important;
+}
+div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
+    background-color: #3d0a0a !important;
+    border-left: 4px solid #e53935 !important;
+}
+
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    background-color: #2D1259 !important;
+    border: 1px solid #461D7C !important;
+    border-radius: 8px !important;
+}
+[data-testid="stExpander"] summary {
+    color: #FDD023 !important;
+    font-weight: 600;
+}
+
+/* ── Subheaders (st.subheader) ── */
+[data-testid="stHeading"] h2,
+[data-testid="stHeading"] h3 {
+    color: #FDD023 !important;
+    border-left: 4px solid #FDD023;
+    padding-left: 10px;
+}
+
+/* ── Caption text ── */
+[data-testid="stCaptionContainer"] {
+    color: #c0a8f0 !important;
+}
+
+/* ── File uploader ── */
+[data-testid="stFileUploader"] {
+    background-color: #2D1259 !important;
+    border: 2px dashed #7a52b5 !important;
+    border-radius: 8px !important;
+}
+[data-testid="stFileUploader"]:hover {
+    border-color: #FDD023 !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #1a0a36; }
+::-webkit-scrollbar-thumb { background: #461D7C; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #FDD023; }
+</style>
+"""
+st.markdown("""
+<style>
+:root {
+    --lsu-purple: #461D7C;
+    --lsu-gold: #FDD023;
+    --warning: #d49a00;
+    --bg: #12161c;
+    --panel: #1b222c;
+    --panel-2: #222b36;
+    --panel-3: #2a3442;
+    --border: #2d3846;
+    --text: #e7ecf3;
+    --muted: #aab4c3;
+    --accent: #6b4ea2;
+    --accent-2: #5876a8;
+    --gold: #d6b24c;
+    --warm: #d9785a;
+    --success: #2f7d57;
+    --success-bg: #16281f;
+    --danger: #b24a4a;
+    --danger-bg: #2b1719;
+}
+
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] {
+    background:
+        radial-gradient(circle at top right, rgba(107, 78, 162, 0.12), transparent 32%),
+        radial-gradient(circle at top left, rgba(88, 118, 168, 0.08), transparent 28%),
+        var(--bg) !important;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #171d26 0%, #11161d 100%) !important;
+    border-right: 2px solid rgba(214, 178, 76, 0.32) !important;
+}
+[data-testid="stSidebar"] * {
+    color: var(--text) !important;
+}
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] textarea {
+    background-color: var(--panel-2) !important;
+    color: var(--text) !important;
+    border: 2px solid var(--border) !important;
+    border-radius: 10px !important;
+}
+[data-testid="stSidebar"] .stButton > button {
+    background: linear-gradient(
+        270deg,
+        var(--accent) 0%,
+        var(--accent-2) 40%,
+        var(--accent) 80%
+    ) !important;
+    background-size: 300% 100% !important;
+    color: #f7f9fc !important;
+    border: 2px solid rgba(214, 178, 76, 0.35) !important;
+    transition: all 0.25s ease, transform 0.18s ease !important;
+    border-radius: 10px !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    filter: brightness(1.15) !important;
+    border-color: rgba(214, 178, 76, 0.75) !important;
+    transform: scale(1.02) !important;
+    box-shadow: 0 4px 14px rgba(107, 78, 162, 0.5) !important;
+}
+[data-testid="stSidebar"] .stButton > button:focus-visible {
+    outline: 3px solid var(--lsu-gold) !important;
+    outline-offset: 2px !important;
+}
+[data-testid="stSidebar"] .stButton > button * {
+    color: #f7f9fc !important;
+}
+[data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type {
+    margin: 0 0 10px 0 !important;
+    padding: 2px 0 10px 0 !important;
+    border-bottom: 1px solid rgba(214, 178, 76, 0.2) !important;
+}
+[data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type > div:first-of-type p {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    color: #dfe6f0 !important;
+}
+[data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type > div:nth-of-type(2) {
+    transform: scale(0.92) !important;
+}
+
+header[data-testid="stHeader"] {
+    background: rgba(18, 22, 28, 0.92) !important;
+    border-bottom: 2px solid rgba(214, 178, 76, 0.22) !important;
+}
+
+html, body, [class*="css"] {
+    color: var(--text) !important;
+}
+h1, h2, h3 {
+    color: var(--text) !important;
+    letter-spacing: 0.3px !important;
+}
+[data-testid="stMain"] p,
+[data-testid="stMain"] label,
+[data-testid="stMain"] .stMarkdown {
+    color: var(--muted);
+}
+
+[data-testid="stTitle"] {
+    color: var(--text) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+[data-testid="stMetric"] {
+    background: linear-gradient(180deg, rgba(34, 43, 54, 0.96), rgba(27, 34, 44, 0.96)) !important;
+    border: 2px solid rgba(214, 178, 76, 0.18) !important;
+    border-radius: 12px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 6px 18px rgba(4, 8, 14, 0.25);
+}
+[data-testid="stMetricLabel"] > div {
+    color: #d7c9f2 !important;
+}
+[data-testid="stMetricValue"] > div {
+    color: var(--text) !important;
+}
+
+[data-testid="stMain"] .stButton > button {
+    background: linear-gradient(180deg, rgba(49, 60, 78, 0.96), rgba(34, 44, 58, 0.96)) !important;
+    color: #f7f9fc !important;
+    border: 1px solid rgba(214, 178, 76, 0.24) !important;
+    border-radius: 12px !important;
+    min-height: 46px !important;
+    padding: 0.72rem 0.95rem !important;
+    transition: all 0.22s ease, transform 0.18s ease, box-shadow 0.22s ease !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 18px rgba(7, 14, 24, 0.24) !important;
+}
+[data-testid="stMain"] .stButton > button * {
+    color: #f7f9fc !important;
+}
+[data-testid="stMain"] .stButton > button:hover {
+    background: linear-gradient(180deg, rgba(61, 74, 96, 0.98), rgba(40, 52, 69, 0.98)) !important;
+    border-color: rgba(214, 178, 76, 0.55) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 24px rgba(107, 78, 162, 0.24) !important;
+}
+[data-testid="stMain"] .stButton > button:hover * {
+    color: #f7f9fc !important;
+}
+[data-testid="stMain"] .stButton > button:active {
+    transform: translateY(0) scale(0.98) !important;
+    filter: brightness(0.95) !important;
+}
+[data-testid="stMain"] .stButton > button:focus-visible {
+    outline: 3px solid var(--lsu-gold) !important;
+    outline-offset: 2px !important;
+}
+
+[data-testid="stMain"] input[type="text"],
+[data-testid="stMain"] textarea,
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stMultiSelect"] > div > div {
+    background: linear-gradient(180deg, rgba(34, 43, 54, 0.98), rgba(27, 34, 44, 0.98)) !important;
+    color: var(--text) !important;
+    border: 1px solid rgba(107, 78, 162, 0.32) !important;
+    border-radius: 12px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 20px rgba(5, 10, 18, 0.16) !important;
+}
+[data-testid="stMain"] input[type="text"]:focus,
+[data-testid="stMain"] textarea:focus {
+    border-color: var(--lsu-gold) !important;
+    box-shadow: 0 0 0 3px rgba(214, 178, 76, 0.22) !important;
+}
+div[data-testid="stTextInput"] label p {
+    color: #dfe6f0 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.35px !important;
+    text-transform: uppercase !important;
+    font-size: 0.8rem !important;
+}
+div[data-testid="stTextInput"] input {
+    min-height: 48px !important;
+}
+div[data-testid="stTextInput"] input::placeholder {
+    color: #a5b0bf !important;
+    opacity: 1 !important;
+}
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+    background-color: rgba(107, 78, 162, 0.2) !important;
+    color: #d7c9f2 !important;
+    border: 1px solid rgba(107, 78, 162, 0.45) !important;
+    border-radius: 999px !important;
+}
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
+    color: #d7c9f2 !important;
+    fill: #d7c9f2 !important;
+}
+
+[data-testid="stCheckbox"] label {
+    color: var(--text) !important;
+}
+
+[data-testid="stDataFrame"] {
+    padding: 6px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, rgba(45, 18, 89, 0.92), rgba(26, 10, 54, 0.94)) !important;
+    border: 1px solid rgba(253, 208, 35, 0.30) !important;
+    box-shadow: 0 14px 28px rgba(10, 4, 20, 0.30) !important;
+}
+[data-testid="stDataFrame"] > div {
+    border: 1px solid rgba(253, 208, 35, 0.30) !important;
+    border-radius: 12px !important;
+    background: rgba(32, 15, 66, 0.94) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+}
+[data-testid="stDataFrame"] th {
+    background: #461D7C !important;
+    color: #FDD023 !important;
+    border-bottom: 1px solid rgba(253, 208, 35, 0.42) !important;
+}
+[data-testid="stDataFrame"] tr:nth-child(even) {
+    background-color: rgba(253, 208, 35, 0.05) !important;
+}
+[data-testid="stDataFrame"] tr:hover {
+    background-color: rgba(253, 208, 35, 0.16) !important;
+}
+
+[data-testid="stDataFrame"] [role="toolbar"],
+[data-testid="stDataFrame"] [class*="toolbar"],
+[data-testid="stDataFrame"] [class*="menu"] {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+[data-testid="stDataFrame"] button,
+[data-testid="stDataFrame"] [role="button"] {
+    background: rgba(70, 29, 124, 0.94) !important;
+    border: 1px solid rgba(253, 208, 35, 0.34) !important;
+    color: #FDD023 !important;
+    border-radius: 9px !important;
+    box-shadow: none !important;
+}
+[data-testid="stDataFrame"] button:hover,
+[data-testid="stDataFrame"] [role="button"]:hover {
+    background: rgba(95, 62, 152, 0.96) !important;
+    border-color: rgba(253, 208, 35, 0.92) !important;
+    color: #fff7d1 !important;
+}
+[data-testid="stDataFrame"] button svg,
+[data-testid="stDataFrame"] [role="button"] svg {
+    fill: #FDD023 !important;
+    stroke: #FDD023 !important;
+}
+
+div[data-testid="stAlert"][data-baseweb="notification"][kind="positive"] {
+    background-color: var(--success-bg) !important;
+    border-left: 4px solid var(--success) !important;
+}
+div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
+    background-color: var(--danger-bg) !important;
+    border-left: 4px solid var(--danger) !important;
+}
+
+[data-testid="stExpander"] {
+    background-color: rgba(27, 34, 44, 0.96) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+}
+[data-testid="stExpander"] summary {
+    color: var(--text) !important;
+}
+[data-testid="stExpander"] summary:focus-visible {
+    outline: 3px solid var(--lsu-gold) !important;
+    outline-offset: 2px !important;
+    border-radius: 6px !important;
+}
+
+button[data-baseweb="tab"] {
+    color: #aeb8c8 !important;
+    border: 1px solid rgba(214, 178, 76, 0.12) !important;
+    border-bottom: 0 !important;
+    background: linear-gradient(180deg, rgba(24, 34, 51, 0.86), rgba(19, 28, 40, 0.9)) !important;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 0.62rem 1rem !important;
+    margin-right: 0.28rem !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #f4f7fb !important;
+    border-color: rgba(214, 178, 76, 0.42) !important;
+    background: linear-gradient(180deg, rgba(41, 55, 77, 0.98), rgba(28, 40, 57, 0.98)) !important;
+    box-shadow: inset 0 -3px 0 var(--lsu-gold), 0 8px 18px rgba(7, 14, 24, 0.16) !important;
+}
+button[data-baseweb="tab"]:nth-of-type(2) {
+    color: #d8b9ae !important;
+    border-color: rgba(217, 120, 90, 0.16) !important;
+}
+button[data-baseweb="tab"]:nth-of-type(2)[aria-selected="true"] {
+    color: #fff2eb !important;
+    border-color: rgba(217, 120, 90, 0.38) !important;
+    background: linear-gradient(180deg, rgba(66, 38, 41, 0.92), rgba(42, 28, 38, 0.95)) !important;
+    box-shadow: inset 0 -3px 0 var(--warm), 0 8px 18px rgba(20, 10, 10, 0.18) !important;
+}
+button[data-baseweb="tab"]:focus-visible {
+    outline: 3px solid var(--lsu-gold) !important;
+    outline-offset: 2px !important;
+}
+
+[data-testid="stHeading"] h2,
+[data-testid="stHeading"] h3 {
+    color: var(--text) !important;
+    border-left: 4px solid var(--accent) !important;
+    padding-left: 12px !important;
+    margin-top: 0.35rem !important;
+    letter-spacing: 0.2px !important;
+}
+
+[data-testid="stCaptionContainer"] {
+    color: var(--muted) !important;
+}
+
+[data-testid="stFileUploader"] {
+    background-color: rgba(27, 34, 44, 0.96) !important;
+    border: 2px dashed var(--border) !important;
+    border-radius: 10px !important;
+}
+[data-testid="stFileUploader"]:hover {
+    border-color: var(--accent) !important;
+}
+
+::-webkit-scrollbar-track { background: #141a21 !important; }
+::-webkit-scrollbar-thumb { background: #334154 !important; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent) !important; }
+
+</style>
+""", unsafe_allow_html=True)
+
+# ── LSU branded page header (tiger eye logo) ────────────────────────────────
+import base64 as _b64
+_tiger_eye_path = os.path.join(os.path.dirname(__file__), "data", "tiger_eye.png")
+try:
+    with open(_tiger_eye_path, "rb") as _f:
+        _tiger_b64 = _b64.b64encode(_f.read()).decode()
+    _logo_html = f'<img src="data:image/png;base64,{_tiger_b64}" style="height:44px;width:44px;object-fit:cover;border-radius:4px;border:1px solid #FDD023;">'
+except Exception:
+    _logo_html = '<span style="font-size:1.6rem;">🐯</span>'  # fallback
+
+st.markdown(f"""
+<style>
+@keyframes shimmer-border {{
+    0% {{ background-position: 0% 50%; }}
+    50% {{ background-position: 100% 50%; }}
+    100% {{ background-position: 0% 50%; }}
+}}
+.lsu-banner-wrapper {{
+    position: relative;
+    background: linear-gradient(90deg, #2D1259 0%, #1a0a36 100%);
+    padding: 16px 18px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}}
+.lsu-banner-wrapper::after {{
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #FDD023 0%, #461D7C 50%, #FDD023 100%);
+    background-size: 200% 100%;
+    animation: shimmer-border 3s infinite linear;
+}}
+</style>
+
+<div class="lsu-banner-wrapper">
+    {_logo_html}
+    <div>
+        <div class="lsu-banner-title" style="color:#FDD023; font-size:1.4rem; font-weight:700;
+                    font-family:'Georgia',serif; letter-spacing:0.5px; line-height:1.0;">
+            LSU CAMERA HEALTH TOOL
+        </div>
+        <div class="lsu-banner-subtitle" style="color:#c0a8f0; font-size:0.85rem; letter-spacing:1px; margin-top:3px;">
+            PUBLIC SAFETY · SURVEILLANCE OPERATIONS
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+if not theme_dark_mode:
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background:
+            radial-gradient(circle at top right, rgba(70, 29, 124, 0.08), transparent 30%),
+            radial-gradient(circle at top left, rgba(253, 208, 35, 0.12), transparent 26%),
+            #f6f4fb !important;
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #fcfaff 0%, #f5effc 100%) !important;
+        border-right: 3px solid #FDD023 !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: #2f1e52 !important;
+    }
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] textarea {
+        background-color: #ffffff !important;
+        color: #2f1e52 !important;
+        border: 2px solid #461D7C !important;
+        box-shadow: 0 0 0 1px rgba(253, 208, 35, 0.2) !important;
+    }
+    [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
+        color: #461D7C !important;
+        font-weight: 700 !important;
+    }
+    [data-testid="stSidebar"] .stButton > button {
+        background: linear-gradient(135deg, #461D7C, #5f3e98) !important;
+        color: #FDD023 !important;
+        border: 2px solid #FDD023 !important;
+        animation: none !important;
+        box-shadow: 0 6px 14px rgba(70, 29, 124, 0.14) !important;
+        border-radius: 10px !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: #5b2791 !important;
+        color: #FDD023 !important;
+        border-color: #FDD023 !important;
+        box-shadow: 0 8px 18px rgba(70, 29, 124, 0.18) !important;
+    }
+    [data-testid="stSidebar"] .stButton > button * {
+        color: #FDD023 !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:focus-visible {
+        outline: 3px solid #FDD023 !important;
+        outline-offset: 2px !important;
+    }
+    [data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type {
+        border-bottom: 1px solid rgba(70, 29, 124, 0.2) !important;
+    }
+    [data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type > div:first-of-type p {
+        color: #461D7C !important;
+    }
+
+    header[data-testid="stHeader"] {
+        background: rgba(252, 249, 255, 0.96) !important;
+        border-bottom: 3px solid #FDD023 !important;
+    }
+
+    html, body, [class*="css"] {
+        color: #24183d !important;
+    }
+    h1, h2, h3 {
+        color: #2f1e52 !important;
+    }
+    [data-testid="stMain"] p,
+    [data-testid="stMain"] label,
+    [data-testid="stMain"] .stMarkdown {
+        color: #5e5473 !important;
+    }
+
+    [data-testid="stTitle"] {
+        color: #2f1e52 !important;
+        border-bottom: 2px solid #461D7C !important;
+    }
+
+    [data-testid="stMetric"] {
+        background: linear-gradient(180deg, #ffffff, #f7f1ff) !important;
+        border: 2px solid #461D7C !important;
+        box-shadow: 0 8px 18px rgba(70, 29, 124, 0.08), inset 0 0 0 1px rgba(253, 208, 35, 0.2) !important;
+    }
+    [data-testid="stMetricLabel"] > div {
+        color: #461D7C !important;
+    }
+    [data-testid="stMetricValue"] > div {
+        color: #2f1e52 !important;
+    }
+
+    [data-testid="stMain"] .stButton > button {
+        background: linear-gradient(135deg, #461D7C, #5f3e98) !important;
+        color: #FDD023 !important;
+        border: 2px solid #FDD023 !important;
+        box-shadow: 0 4px 12px rgba(70, 29, 124, 0.14) !important;
+        border-radius: 10px !important;
+        min-height: 44px !important;
+    }
+    [data-testid="stMain"] .stButton > button * {
+        color: #FDD023 !important;
+    }
+    [data-testid="stMain"] .stButton > button:hover {
+        background: #5b2791 !important;
+        color: #FDD023 !important;
+        border-color: #FDD023 !important;
+        box-shadow: 0 8px 18px rgba(70, 29, 124, 0.18) !important;
+    }
+    [data-testid="stMain"] .stButton > button:hover * {
+        color: #FDD023 !important;
+    }
+    [data-testid="stMain"] .stButton > button:focus-visible {
+        outline: 3px solid #FDD023 !important;
+        outline-offset: 2px !important;
+    }
+
+    [data-testid="stMain"] input[type="text"],
+    [data-testid="stMain"] textarea,
+    [data-testid="stSelectbox"] > div > div,
+    [data-testid="stMultiSelect"] > div > div {
+        background-color: #ffffff !important;
+        color: #24183d !important;
+        border: 2px solid #461D7C !important;
+        box-shadow: 0 0 0 1px rgba(253, 208, 35, 0.16) !important;
+    }
+    [data-testid="stMain"] input[type="text"]:focus,
+    [data-testid="stMain"] textarea:focus {
+        border-color: #FDD023 !important;
+        box-shadow: 0 0 0 3px rgba(253, 208, 35, 0.22) !important;
+        animation: none !important;
+    }
+    div[data-testid="stTextInput"] label p {
+        color: #461D7C !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.2px !important;
+    }
+    div[data-testid="stTextInput"] input {
+        min-height: 48px !important;
+    }
+    div[data-testid="stTextInput"] input::placeholder {
+        color: #6d6484 !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+        background-color: #FDD023 !important;
+        color: #461D7C !important;
+        border: 1px solid #461D7C !important;
+    }
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
+        color: #461D7C !important;
+        fill: #461D7C !important;
+    }
+
+    [data-testid="stCheckbox"] label {
+        color: #2f1e52 !important;
+    }
+
+    [data-testid="stDataFrame"] > div {
+        border: 2px solid #461D7C !important;
+        border-radius: 10px !important;
+        background-color: #ffffff !important;
+        box-shadow: inset 0 0 0 1px rgba(253, 208, 35, 0.18) !important;
+    }
+    [data-testid="stDataFrame"] th {
+        background-color: #461D7C !important;
+        color: #FDD023 !important;
+    }
+    [data-testid="stDataFrame"] tr:nth-child(even) {
+        background-color: rgba(70, 29, 124, 0.04) !important;
+    }
+    [data-testid="stDataFrame"] tr:hover {
+        background-color: rgba(253, 208, 35, 0.12) !important;
+    }
+    [data-testid="stDataFrame"] canvas {
+        filter: invert(1) hue-rotate(180deg) brightness(1.03) contrast(0.96) !important;
+    }
+    [data-testid="stDataFrame"] input,
+    [data-testid="stDataFrame"] textarea {
+        background-color: #ffffff !important;
+        color: #24183d !important;
+        filter: none !important;
+    }
+    [data-testid="stDataFrame"] [role="toolbar"],
+    [data-testid="stDataFrame"] [class*="toolbar"],
+    [data-testid="stDataFrame"] [class*="menu"] {
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+    }
+    [data-testid="stDataFrame"] [role="toolbar"] > div,
+    [data-testid="stDataFrame"] [class*="toolbar"] > div,
+    [data-testid="stDataFrame"] [class*="menu"] > div,
+    [data-testid="stDataFrame"] [role="toolbar"] > div > div,
+    [data-testid="stDataFrame"] [class*="toolbar"] > div > div,
+    [data-testid="stDataFrame"] [class*="menu"] > div > div {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stDataFrame"] button,
+    [data-testid="stDataFrame"] [role="button"] {
+        background: rgba(255, 255, 255, 0.88) !important;
+        border: 1px solid rgba(70, 29, 124, 0.16) !important;
+        color: #461D7C !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stDataFrame"] button:hover,
+    [data-testid="stDataFrame"] [role="button"]:hover {
+        background: rgba(247, 241, 255, 0.98) !important;
+        border-color: rgba(253, 208, 35, 0.9) !important;
+        color: #461D7C !important;
+        box-shadow: 0 2px 8px rgba(70, 29, 124, 0.08) !important;
+    }
+    [data-testid="stDataFrame"] button:focus-visible,
+    [data-testid="stDataFrame"] [role="button"]:focus-visible {
+        outline: 2px solid #FDD023 !important;
+        outline-offset: 1px !important;
+    }
+    [data-testid="stDataFrame"] button svg,
+    [data-testid="stDataFrame"] [role="button"] svg {
+        fill: #461D7C !important;
+        stroke: #461D7C !important;
+    }
+
+    [data-testid="stAlert"] {
+        background-color: rgba(255, 255, 255, 0.92) !important;
+        border: 2px solid #461D7C !important;
+    }
+    div[data-testid="stAlert"][data-baseweb="notification"][kind="positive"] {
+        background-color: #edf8f1 !important;
+        border-left: 4px solid #2f7d57 !important;
+    }
+    div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
+        background-color: #fdeeee !important;
+        border-left: 4px solid #b24a4a !important;
+    }
+
+    [data-testid="stExpander"] {
+        background-color: rgba(255, 255, 255, 0.92) !important;
+        border: 2px solid #461D7C !important;
+        box-shadow: inset 0 0 0 1px rgba(253, 208, 35, 0.16) !important;
+    }
+    [data-testid="stExpander"] summary {
+        color: #2f1e52 !important;
+        font-weight: 700 !important;
+    }
+    [data-testid="stExpander"] summary:focus-visible {
+        outline: 3px solid #FDD023 !important;
+        outline-offset: 2px !important;
+        border-radius: 6px !important;
+    }
+
+    [data-testid="stHeading"] h2,
+    [data-testid="stHeading"] h3 {
+        color: #2f1e52 !important;
+        border-left: 4px solid #FDD023 !important;
+    }
+
+    [data-testid="stCaptionContainer"] {
+        color: #675a81 !important;
+    }
+
+    [data-testid="stFileUploader"] {
+        background-color: rgba(255, 255, 255, 0.92) !important;
+        border: 2px dashed #461D7C !important;
+    }
+    [data-testid="stFileUploader"] > div,
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] [class*="uploadDropzone"] {
+        background-color: rgba(255, 255, 255, 0.96) !important;
+    }
+    [data-testid="stFileUploader"] * {
+        color: #461D7C !important;
+    }
+    [data-testid="stFileUploader"] button {
+        background: #f7f1ff !important;
+        border: 1px solid #461D7C !important;
+        color: #461D7C !important;
+    }
+    [data-testid="stFileUploader"] button * {
+        color: #461D7C !important;
+    }
+    [data-testid="stFileUploader"]:hover {
+        border-color: #FDD023 !important;
+    }
+
+    button[data-baseweb="tab"] {
+        color: #461D7C !important;
+        border: 1px solid rgba(70, 29, 124, 0.28) !important;
+        border-bottom: 0 !important;
+        background: #ffffff !important;
+        border-radius: 10px 10px 0 0 !important;
+        padding: 0.58rem 0.9rem !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #2f1e52 !important;
+        border-color: #461D7C !important;
+        background: #f7f1ff !important;
+        box-shadow: inset 0 -3px 0 #FDD023 !important;
+    }
+    button[data-baseweb="tab"]:focus-visible {
+        outline: 3px solid #FDD023 !important;
+        outline-offset: 2px !important;
+    }
+
+    ::-webkit-scrollbar-track { background: #eee8f7 !important; }
+    ::-webkit-scrollbar-thumb { background: #b8abd5 !important; }
+    ::-webkit-scrollbar-thumb:hover { background: #5f3e98 !important; }
+
+    .lsu-banner-wrapper {
+        background: linear-gradient(90deg, #ffffff 0%, #f4eefc 100%) !important;
+        border: 2px solid #461D7C !important;
+        box-shadow: 0 4px 14px rgba(70, 29, 124, 0.08), inset 0 0 0 1px rgba(253, 208, 35, 0.18) !important;
+    }
+    .lsu-banner-wrapper::after {
+        background: linear-gradient(90deg, #5f3e98 0%, #fdd023 50%, #5f3e98 100%) !important;
+    }
+    .lsu-banner-title {
+        color: #4a2c7f !important;
+    }
+    .lsu-banner-subtitle {
+        color: #6e5f8d !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+DEFAULT_SITE_HEALTH_PATH = r"C:\Users\stephenson\Documents\camera-health-tool\LSU Public Safety Surveillance.csv"
+NOTES_PATH = os.path.join("data", "notes.csv")
+TRACKING_PATH = os.path.join("data", "device_tracking.csv")
+TICKETS_PATH = os.path.join("data", "tickets.csv")
+TDX_HELPDESK_EMAIL = "helpdesk@lsu.edu"
+
+
+# -----------------------------
+# Helpers
+# -----------------------------
+def normalize_avigilon_headers(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardizes inconsistent Avigilon CSV headers (e.g. trailing spaces, case changes).
+    """
+    column_mapping = {
+        "device id": "Device ID",
+        "mac": "MAC Address",
+        "serial": "Serial Number",
+        "status": "Status"
+    }
+    df.columns = [column_mapping.get(c.strip().lower(), c.strip()) for c in df.columns]
+    return df
+
+def generate_ticket_payload(row: pd.Series) -> str:
+    """
+    Generates a copy-paste ready string for IT ticketing systems.
+    Usage: Apply this to selected rows in the dataframe.
+    """
+    return (
+        f"Camera Issue Report:\n"
+        f"- Device Name: {row.get('Device Name Base', 'N/A')}\n"
+        f"- Location: {row.get('Location', 'N/A')}\n"
+        f"- IP: {row.get('IP Address', 'N/A')} | MAC: {row.get('MAC Address', 'N/A')}\n"
+        f"- Error: {row.get('Error Flags', 'None')}\n"
+        f"- Disposition Notes: {row.get('notes', 'None')}"
+    )
+
+@st.cache_data(ttl=600)
+def read_site_health_csv(path: str) -> pd.DataFrame:
+    """
+    Avigilon Site Health export often has a few non-table lines at the top.
+    This finds the real header row (containing Server Name + Device Name) and reads from there.
+    """
+    header_idx = None
+    with open(path, "r", encoding="utf-8-sig", newline="") as f:
+        for i, line in enumerate(f):
+            if "Server Name" in line and "Device Name" in line:
+                header_idx = i
+                break
+
+    if header_idx is None:
+        raise ValueError("Could not find device table header row containing 'Server Name' and 'Device Name'.")
+
+    df = pd.read_csv(path, skiprows=header_idx, engine="python", on_bad_lines="skip")
+    df = normalize_avigilon_headers(df)
+    return df
+
+
+def truthy_to_bool(series: pd.Series) -> pd.Series:
+    return (
+        series.astype(str)
+        .str.strip()
+        .str.upper()
+        .map({"TRUE": True, "FALSE": False})
+        .fillna(False)
+    )
+
+
+def clean_text_series(s: pd.Series) -> pd.Series:
+    return (
+        s.astype(str)
+        .str.strip()
+        .replace({"nan": "", "None": "", "none": ""})
+    )
+
+
+def device_name_base(df: pd.DataFrame) -> pd.Series:
+    # Remove trailing "(1)", "(2)" etc
+    return (
+        df["Device Name"]
+        .astype(str)
+        .str.strip()
+        .str.replace(r"\s*\(\d+\)\s*$", "", regex=True)
+    )
+
+
+def extract_device_id_base(df: pd.DataFrame) -> pd.Series:
+    """
+    Device ID field often contains comma-separated tokens. Example:
+    Device,1.1.00188545e5cc.cam00,3.<guid>,4.<guid>
+    We grab the second token and strip .camNN.
+    """
+    if "Device ID" not in df.columns:
+        return pd.Series([pd.NA] * len(df), index=df.index)
+
+    token = df["Device ID"].astype(str).str.split(",", expand=True)
+    if token.shape[1] < 2:
+        return pd.Series([pd.NA] * len(df), index=df.index)
+
+    dev = token[1].fillna("").astype(str).str.strip()
+    dev = dev.str.replace(r"\.cam\d+$", "", regex=True)
+    dev = dev.replace("", pd.NA)
+    return dev
+
+
+def build_physical_key(df: pd.DataFrame) -> pd.Series:
+    """
+    Build a PHYSICAL device key (one per camera), collapsing:
+      - multi-lens rows
+      - primary/secondary server duplicates
+
+    Priority:
+      1) MAC Address (best for primary/secondary duplicates)
+      2) Serial Number
+      3) Device ID base (strips .camNN)
+      4) Device Name Base
+    """
+    mac = clean_text_series(df["MAC Address"]) if "MAC Address" in df.columns else pd.Series([pd.NA]*len(df), index=df.index)
+    mac = mac.replace("", pd.NA)
+
+    serial = clean_text_series(df["Serial Number"]) if "Serial Number" in df.columns else pd.Series([pd.NA]*len(df), index=df.index)
+    serial = serial.replace("", pd.NA)
+
+    dev_base = extract_device_id_base(df)
+    name_base = device_name_base(df).replace("", pd.NA)
+
+    physical = mac.combine_first(serial).combine_first(dev_base).combine_first(name_base).fillna("UNKNOWN")
+    return physical
+
+
+def load_notes(notes_path: str) -> pd.DataFrame:
+    os.makedirs(os.path.dirname(notes_path), exist_ok=True)
+
+    if os.path.exists(notes_path):
+        ndf = pd.read_csv(notes_path)
+        ndf.columns = [c.strip() for c in ndf.columns]
+    else:
+        ndf = pd.DataFrame(columns=["key", "disposition", "notes"])
+
+    for col in ["key", "disposition", "notes"]:
+        if col not in ndf.columns:
+            ndf[col] = ""
+
+    ndf = ndf[["key", "disposition", "notes"]].copy()
+    ndf["key"] = ndf["key"].astype(str)
+    ndf["disposition"] = ndf["disposition"].fillna("")
+    ndf["notes"] = ndf["notes"].fillna("")
+    return ndf
+
+
+def save_notes(notes_path: str, edited_notes: pd.DataFrame) -> None:
+    os.makedirs(os.path.dirname(notes_path), exist_ok=True)
+
+    out = edited_notes.copy()
+    out["key"] = out["key"].astype(str)
+    out["disposition"] = out["disposition"].fillna("")
+    out["notes"] = out["notes"].fillna("")
+    out = out.drop_duplicates(subset=["key"], keep="last")
+    out.to_csv(notes_path, index=False)
+
+
+def utc_now_timestamp() -> pd.Timestamp:
+    return pd.Timestamp(datetime.now(timezone.utc)).floor("s")
+
+
+def format_timestamp(ts: pd.Timestamp | str | None) -> str:
+    parsed = pd.to_datetime(ts, utc=True, errors="coerce")
+    if pd.isna(parsed):
+        return ""
+    return parsed.isoformat()
+
+
+def hours_since(ts: pd.Timestamp | str | None, now_ts: pd.Timestamp) -> float:
+    parsed = pd.to_datetime(ts, utc=True, errors="coerce")
+    if pd.isna(parsed):
+        return 0.0
+    delta = now_ts - parsed
+    return max(delta.total_seconds() / 3600.0, 0.0)
+
+
+def load_tracking_state(path: str) -> pd.DataFrame:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    cols = [
+        "key",
+        "device_name",
+        "location",
+        "current_health_state",
+        "first_seen_at",
+        "last_seen_at",
+        "first_offline_at",
+        "last_offline_seen_at",
+        "last_online_at",
+        "offline_hours",
+        "ticket_status",
+        "ticket_id",
+        "active",
+    ]
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        df.columns = [c.strip() for c in df.columns]
+    else:
+        df = pd.DataFrame(columns=cols)
+
+    for col in cols:
+        if col not in df.columns:
+            df[col] = ""
+
+    df = df[cols].copy()
+    df["key"] = df["key"].astype(str)
+    df["device_name"] = df["device_name"].fillna("")
+    df["location"] = df["location"].fillna("")
+    df["current_health_state"] = df["current_health_state"].fillna("")
+    df["offline_hours"] = pd.to_numeric(df["offline_hours"], errors="coerce").fillna(0.0)
+    df["ticket_status"] = df["ticket_status"].fillna("")
+    df["ticket_id"] = df["ticket_id"].fillna("")
+    df["active"] = df["active"].astype(str).str.strip().str.upper().map({"TRUE": True, "FALSE": False}).fillna(True)
+    return df
+
+
+def save_tracking_state(path: str, tracking_df: pd.DataFrame) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    cols = [
+        "key",
+        "device_name",
+        "location",
+        "current_health_state",
+        "first_seen_at",
+        "last_seen_at",
+        "first_offline_at",
+        "last_offline_seen_at",
+        "last_online_at",
+        "offline_hours",
+        "ticket_status",
+        "ticket_id",
+        "active",
+    ]
+    out = tracking_df.copy()
+    for col in cols:
+        if col not in out.columns:
+            out[col] = ""
+    out = out[cols].copy()
+    out["key"] = out["key"].astype(str)
+    out["offline_hours"] = pd.to_numeric(out["offline_hours"], errors="coerce").fillna(0.0).round(2)
+    out["active"] = out["active"].fillna(True)
+    out = out.drop_duplicates(subset=["key"], keep="last")
+    out.to_csv(path, index=False)
+
+
+def load_tickets(path: str) -> pd.DataFrame:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    cols = [
+        "ticket_key",
+        "key",
+        "device_name",
+        "location",
+        "health_state",
+        "offline_since",
+        "offline_hours_at_creation",
+        "ticket_state",
+        "ticket_id",
+        "email_to",
+        "email_subject",
+        "created_at",
+        "email_sent_at",
+        "resolved_at",
+        "resolution",
+        "resolution_notes",
+        "last_error",
+    ]
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        df.columns = [c.strip() for c in df.columns]
+    else:
+        df = pd.DataFrame(columns=cols)
+
+    for col in cols:
+        if col not in df.columns:
+            df[col] = ""
+
+    df = df[cols].copy()
+    for col in ["ticket_key", "key", "device_name", "location", "health_state", "ticket_state", "ticket_id", "email_to", "email_subject", "resolution", "resolution_notes", "last_error"]:
+        df[col] = df[col].fillna("").astype(str)
+    df["offline_hours_at_creation"] = pd.to_numeric(df["offline_hours_at_creation"], errors="coerce").fillna(0.0)
+    return df
+
+
+def normalize_ticket_updates(tickets_df: pd.DataFrame) -> pd.DataFrame:
+    out = tickets_df.copy()
+    now_iso = format_timestamp(utc_now_timestamp())
+    out["ticket_state"] = out["ticket_state"].fillna("").astype(str)
+    resolved_mask = out["ticket_state"].eq("Resolved")
+    out.loc[resolved_mask & out["resolved_at"].fillna("").eq(""), "resolved_at"] = now_iso
+    out.loc[~resolved_mask, "resolved_at"] = out.loc[~resolved_mask, "resolved_at"].fillna("")
+    return out
+
+
+def save_tickets(path: str, tickets_df: pd.DataFrame) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    out = normalize_ticket_updates(tickets_df)
+    out = out.drop_duplicates(subset=["ticket_key"], keep="last")
+    out.to_csv(path, index=False)
+
+
+def build_ticket_subject(row: pd.Series) -> str:
+    device_name = row.get("Device Name Base") or row.get("device_name") or row.get("key") or "Unknown device"
+    location = row.get("Location") or row.get("location") or "Unknown location"
+    return f"Camera Offline >24h: {device_name} ({location})"
+
+
+def build_ticket_email_body(row: pd.Series, offline_hours: float) -> str:
+    return (
+        f"{generate_ticket_payload(row)}\n"
+        f"- Health State: {row.get('Health State', row.get('health_state', 'N/A'))}\n"
+        f"- Offline For (hours): {offline_hours:.1f}\n"
+        f"- Requested Action: Create/assign TDX ticket for initial troubleshooting."
+    )
+
+
+def send_ticket_email(smtp_host: str, smtp_port: int, smtp_username: str, smtp_password: str, from_email: str, to_email: str, subject: str, body: str) -> tuple[bool, str]:
+    if not all([smtp_host, smtp_port, smtp_username, smtp_password, from_email, to_email]):
+        return False, "SMTP settings are incomplete."
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = from_email
+    msg["To"] = to_email
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as smtp:
+            smtp.starttls()
+            smtp.login(smtp_username, smtp_password)
+            smtp.send_message(msg)
+        return True, ""
+    except Exception as exc:
+        return False, str(exc)
+
+
+def clean_cell_value(value: object) -> str:
+    text = str(value).strip()
+    return "" if text.lower() in {"", "nan", "none", "nat"} else text
+
+
+def row_first_non_empty(row: pd.Series, candidate_columns: list[str]) -> str:
+    for col in candidate_columns:
+        if col in row.index:
+            value = clean_cell_value(row.get(col, ""))
+            if value:
+                return value
+    return ""
+
+
+def extract_camera_and_failover_servers(row: pd.Series) -> tuple[str, str]:
+    server_blob = row_first_non_empty(row, ["Servers", "Server Name"])
+    if not server_blob:
+        return "", ""
+    servers = [part.strip() for part in server_blob.split("|") if part.strip()]
+    if not servers:
+        return "", ""
+    camera_server = servers[0]
+    failover_server = servers[1] if len(servers) > 1 else ""
+    return camera_server, failover_server
+
+
+def build_manual_tdx_ticket_subject(row: pd.Series) -> str:
+    camera_name = row_first_non_empty(row, ["Device Name Base", "Device Name", "device_name", "key"]) or "Unknown Camera"
+    return f"Camera Offline: {camera_name}"
+
+
+def build_manual_tdx_ticket_body(row: pd.Series) -> str:
+    camera_server, failover_server = extract_camera_and_failover_servers(row)
+    metadata_fields = [
+        ("Camera Location", row_first_non_empty(row, ["Location", "location"])),
+        ("Asset ID", row_first_non_empty(row, ["Asset ID", "AssetID", "Logical ID", "Asset Tag"])),
+        ("Product Model", row_first_non_empty(row, ["Model", "Product Model", "Model Name"])),
+        ("MAC Address", row_first_non_empty(row, ["MAC Address", "key"])),
+        ("Serial Number", row_first_non_empty(row, ["Serial Number", "Serial"])),
+        ("Camera IP", row_first_non_empty(row, ["IP Address"])),
+        ("Camera Server", camera_server),
+        ("Failover Server", failover_server),
+        ("Camera Power Source", row_first_non_empty(row, ["Camera Power Source", "Power Source", "Power"])),
+        ("ITS Switch IP", row_first_non_empty(row, ["ITS Switch IP", "Switch IP", "Network Switch IP"])),
+        ("ITS Switch Name", row_first_non_empty(row, ["ITS Switch Name", "Switch Name", "Network Switch Name"])),
+        ("ITS Switch Port", row_first_non_empty(row, ["ITS Switch Port", "Switch Port", "Network Switch Port"])),
+    ]
+
+    lines = [
+        "The following camera cannot be pinged nor is it connected to the VMS. Please troubleshoot configurations and cycle the power to the port.",
+        "",
+    ]
+    for label, value in metadata_fields:
+        if value:
+            lines.append(f"{label}: {value}")
+    return "\n".join(lines)
+
+
+def send_manual_tdx_ticket_for_row(
+    row: pd.Series,
+    smtp_host: str,
+    smtp_port: int,
+    smtp_username: str,
+    smtp_password: str,
+    smtp_from_email: str,
+    tdx_email_to: str,
+) -> tuple[bool, str]:
+    now_iso = format_timestamp(utc_now_timestamp())
+    key_value = row_first_non_empty(row, ["key", "MAC Address"])
+    device_name = row_first_non_empty(row, ["Device Name Base", "Device Name", "device_name"])
+    location = row_first_non_empty(row, ["Location", "location"])
+    health_state = row_first_non_empty(row, ["Health State", "Health"])
+    offline_hours = pd.to_numeric(row.get("Offline For (hrs)", 0.0), errors="coerce")
+    if pd.isna(offline_hours):
+        offline_hours = 0.0
+
+    subject = build_manual_tdx_ticket_subject(row)
+    body = build_manual_tdx_ticket_body(row)
+    sent, err = send_ticket_email(
+        smtp_host,
+        smtp_port,
+        smtp_username,
+        smtp_password,
+        smtp_from_email,
+        tdx_email_to,
+        subject,
+        body,
+    )
+
+    unique_suffix = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    ticket_key = f"{key_value or device_name or 'UNKNOWN'}|manual|{unique_suffix}"
+    ticket_row = pd.DataFrame([{
+        "ticket_key": ticket_key,
+        "key": key_value,
+        "device_name": device_name,
+        "location": location,
+        "health_state": health_state,
+        "offline_since": "",
+        "offline_hours_at_creation": float(offline_hours),
+        "ticket_state": "Open" if sent else "Pending Send",
+        "ticket_id": "",
+        "email_to": tdx_email_to,
+        "email_subject": subject,
+        "created_at": now_iso,
+        "email_sent_at": now_iso if sent else "",
+        "resolved_at": "",
+        "resolution": "",
+        "resolution_notes": "",
+        "last_error": "" if sent else str(err),
+    }])
+
+    tickets = load_tickets(TICKETS_PATH)
+    tickets = pd.concat([tickets, ticket_row], ignore_index=True)
+    save_tickets(TICKETS_PATH, tickets)
+    return sent, err
+
+
+def is_row_eligible_for_manual_tdx(row: pd.Series) -> bool:
+    health_state = row_first_non_empty(row, ["Health", "Health State"]).lower()
+    ping_status = row_first_non_empty(row, ["Ping Status"]).lower()
+    if "offline" not in health_state:
+        return False
+    bad_ping_markers = ("not pingable", "ping error", "no ip", "invalid ip")
+    return any(marker in ping_status for marker in bad_ping_markers)
+
+
+def sync_tracking_and_tickets(
+    devices_df: pd.DataFrame,
+    tracking_df: pd.DataFrame,
+    tickets_df: pd.DataFrame,
+    observed_at: pd.Timestamp,
+    tdx_email_to: str,
+    smtp_settings: dict,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str], list[str]]:
+    tracking = load_tracking_state(TRACKING_PATH) if tracking_df is None else tracking_df.copy()
+    tickets = load_tickets(TICKETS_PATH) if tickets_df is None else tickets_df.copy()
+    notices: list[str] = []
+    errors: list[str] = []
+    observed_iso = format_timestamp(observed_at)
+
+    unresolved_states = {"Pending Send", "Open"}
+    unresolved_mask = tickets["ticket_state"].isin(unresolved_states)
+    unresolved_keys = set(tickets.loc[unresolved_mask, "key"].astype(str))
+
+    tracking_map: dict[str, dict[str, object]] = {}
+    if not tracking.empty:
+        tracking_map = tracking.set_index("key").to_dict(orient="index")
+
+    rows = []
+    for _, row in devices_df.iterrows():
+        key = str(row["key"])
+        prior = tracking_map[key] if key in tracking_map else {}
+        is_offline = row.get("Health State", "Online") != "Online"
+        first_offline_at = prior.get("first_offline_at", "")
+
+        if is_offline and not format_timestamp(first_offline_at):
+            first_offline_at = observed_iso
+        if not is_offline and key not in unresolved_keys:
+            first_offline_at = ""
+
+        offline_hours = hours_since(first_offline_at, observed_at) if is_offline else 0.0
+        ticket_status = "Open" if key in unresolved_keys else ""
+        ticket_id = prior.get("ticket_id", "")
+        unresolved_for_device = tickets[(tickets["key"].astype(str) == key) & tickets["ticket_state"].isin(unresolved_states)]
+        if not unresolved_for_device.empty:
+            latest_ticket = unresolved_for_device.iloc[-1]
+            ticket_status = latest_ticket.get("ticket_state", ticket_status)
+            ticket_id = latest_ticket.get("ticket_id", ticket_id)
+
+        offline_hours_rounded = float(f"{float(offline_hours):.2f}")
+        rows.append({
+            "key": key,
+            "device_name": row.get("Device Name Base", ""),
+            "location": row.get("Location", ""),
+            "current_health_state": row.get("Health State", ""),
+            "first_seen_at": prior.get("first_seen_at", observed_iso) or observed_iso,
+            "last_seen_at": observed_iso,
+            "first_offline_at": first_offline_at,
+            "last_offline_seen_at": observed_iso if is_offline else prior.get("last_offline_seen_at", ""),
+            "last_online_at": prior.get("last_online_at", observed_iso if not is_offline else ""),
+            "offline_hours": offline_hours_rounded,
+            "ticket_status": ticket_status,
+            "ticket_id": ticket_id,
+            "active": True,
+        })
+
+        if is_offline and offline_hours >= 24 and key not in unresolved_keys:
+            ticket_key = f"{key}|{observed_iso}"
+            subject = build_ticket_subject(row)
+            tickets = pd.concat([
+                tickets,
+                pd.DataFrame([{
+                    "ticket_key": ticket_key,
+                    "key": key,
+                    "device_name": row.get("Device Name Base", ""),
+                    "location": row.get("Location", ""),
+                    "health_state": row.get("Health State", ""),
+                    "offline_since": format_timestamp(first_offline_at),
+                    "offline_hours_at_creation": offline_hours_rounded,
+                    "ticket_state": "Pending Send",
+                    "ticket_id": "",
+                    "email_to": tdx_email_to,
+                    "email_subject": subject,
+                    "created_at": observed_iso,
+                    "email_sent_at": "",
+                    "resolved_at": "",
+                    "resolution": "",
+                    "resolution_notes": "",
+                    "last_error": "",
+                }]),
+            ], ignore_index=True)
+            unresolved_keys.add(key)
+            notices.append(f"Queued ticket for {row.get('Device Name Base', key)} after {offline_hours:.1f} offline hours.")
+
+    missing_rows = tracking[~tracking["key"].astype(str).isin(devices_df["key"].astype(str))].copy()
+    if not missing_rows.empty:
+        missing_rows["active"] = False
+        rows.extend(missing_rows.to_dict(orient="records"))
+
+    tracking = pd.DataFrame(rows)
+
+    # No more auto-emailing from here. It is handled by interactive UI.
+
+    unresolved_view = tickets[tickets["ticket_state"].isin(unresolved_states | {"Open"})].copy()
+    if not unresolved_view.empty:
+        unresolved_view = unresolved_view.sort_values("created_at").drop_duplicates(subset=["key"], keep="last")
+        tracking = tracking.merge(
+            unresolved_view[["key", "ticket_state", "ticket_id"]],
+            on="key",
+            how="left",
+            suffixes=("", "_latest"),
+        )
+        tracking["ticket_status"] = tracking["ticket_state"].combine_first(tracking["ticket_status"])
+        tracking["ticket_id"] = tracking["ticket_id_latest"].combine_first(tracking["ticket_id"])
+        tracking = tracking.drop(columns=[c for c in ["ticket_state", "ticket_id_latest"] if c in tracking.columns])
+
+    devices_enriched = devices_df.merge(
+        tracking[["key", "first_offline_at", "offline_hours", "ticket_status", "ticket_id"]],
+        on="key",
+        how="left",
+    )
+    devices_enriched["Offline For (hrs)"] = pd.to_numeric(devices_enriched["offline_hours"], errors="coerce").fillna(0.0).round(1)
+    devices_enriched["Ticket Status"] = devices_enriched["ticket_status"].fillna("")
+    devices_enriched["Ticket ID"] = devices_enriched["ticket_id"].fillna("")
+    return devices_enriched, tracking, tickets, notices, errors
+
+
+@st.cache_data
+def compute_health_state(df: pd.DataFrame) -> pd.DataFrame:
+    if "Connected" in df.columns:
+        df["Connected_bool"] = truthy_to_bool(df["Connected"])
+    else:
+        df["Connected_bool"] = False
+
+    if "Visible" in df.columns:
+        df["Visible_bool"] = truthy_to_bool(df["Visible"])
+    else:
+        df["Visible_bool"] = False
+
+    if "Status" in df.columns:
+        status = df["Status"].astype(str).str.strip().str.lower()
+        failed_status = status.str.contains("fail", na=False)
+    else:
+        failed_status = pd.Series(False, index=df.index)
+
+    if "Error Flags" in df.columns:
+        err = df["Error Flags"].astype(str).str.strip().replace({"nan": "", "None": "", "none": ""})
+        has_err = err.ne("")
+    else:
+        has_err = pd.Series(False, index=df.index)
+
+    offline = (~df["Connected_bool"]) | failed_status | has_err
+    offline_but_visible = offline & df["Visible_bool"]
+
+    df["Health State"] = "Online"
+    df.loc[offline, "Health State"] = "Offline"
+    df.loc[offline_but_visible, "Health State"] = "Offline (but still visible)"
+
+    bubble_map = {
+        "Online": "🟢 Online",
+        "Offline": "🔴 Offline",
+        "Offline (but still visible)": "🟠 Offline (visible)",
+    }
+    df["Health"] = df["Health State"].map(bubble_map).fillna(df["Health State"])
+    return df
+
+
+@st.cache_data
+def build_devices_table(df_views: pd.DataFrame) -> pd.DataFrame:
+    """
+    Collapse view-level export into one row per physical camera.
+    - Views = number of rows in export for that physical camera (lenses / ONVIF channels / duplicates)
+    - Servers = list of servers camera appears on (primary/secondary)
+    """
+    severity = {"Online": 0, "Offline (but still visible)": 1, "Offline": 2}
+
+    def worst_state(states: pd.Series) -> str:
+        states = states.fillna("Online").astype(str)
+        return max(states, key=lambda s: severity.get(s, 0))
+
+    bubble_map = {
+        "Online": "🟢 Online",
+        "Offline": "🔴 Offline",
+        "Offline (but still visible)": "🟠 Offline (visible)",
+    }
+
+    def worst_bubble(states: pd.Series) -> str:
+        s = worst_state(states)
+        return bubble_map.get(s, s)
+
+    def join_unique(series: pd.Series) -> str:
+        vals = series.fillna("").astype(str).str.strip()
+        vals = vals.replace({"nan": "", "None": "", "none": ""})
+        vals = [v for v in vals.tolist() if v]
+        if not vals:
+            return ""
+        return " | ".join(sorted(set(vals)))
+
+    agg_map: dict[str, object] = {
+        "physical_key": "first",
+        "key": "first",  # notes key (same as physical_key)
+        "Device Name Base": "first",
+        "Device Name": "first",
+        "Location": "first",
+        "Make": "first",
+        "Model": "first",
+        "IP Address": "first",
+        "MAC Address": "first",
+        "Connected_bool": "max",
+        "Visible_bool": "max",
+        "Health State": worst_state,
+        "Health": worst_bubble,
+        "Error Flags": join_unique,
+        "Status": join_unique,
+        "disposition": "first",
+        "notes": "first",
+        "Server Name": join_unique,  # temporary, we'll rename to Servers
+    }
+    optional_metadata_cols = [
+        "Serial Number",
+        "Logical ID",
+        "Asset ID",
+        "Asset Tag",
+        "Product Model",
+        "Model Name",
+        "Camera Power Source",
+        "Power Source",
+        "ITS Switch IP",
+        "ITS Switch Name",
+        "ITS Switch Port",
+        "Switch IP",
+        "Switch Name",
+        "Switch Port",
+    ]
+    for col in optional_metadata_cols:
+        if col in df_views.columns:
+            agg_map[col] = "first"
+
+    devices = (
+        df_views
+        .groupby("physical_key", as_index=False)
+        .agg(agg_map)
+    )
+
+    devices = devices.rename(columns={"Server Name": "Servers"})
+    devices["Views"] = df_views.groupby("physical_key").size().reindex(devices["physical_key"]).values
+
+    # Nice ordering
+    if "Device Name Base" in devices.columns:
+        devices["Device Name Base"] = devices["Device Name Base"].fillna(devices["Device Name"])
+
+    return devices
+
+
+def apply_global_search(df: pd.DataFrame, search_text: str) -> pd.DataFrame:
+    if not search_text:
+        return df
+
+    terms = search_text.lower().split()
+
+    def row_matches(row) -> bool:
+        blob = " ".join(row.astype(str)).lower()
+        return all(term in blob for term in terms)
+
+    return df[df.apply(row_matches, axis=1)]
+
+
+def ping_one_ip(ip: str) -> str:
+    ip_clean = str(ip).strip()
+    if not ip_clean:
+        return "⚪ No IP"
+    try:
+        ipaddress.ip_address(ip_clean)
+    except ValueError:
+        return "🟠 Invalid IP"
+
+    is_windows = platform.system().lower().startswith("win")
+    cmd = ["ping", "-n", "1", "-w", "900", ip_clean] if is_windows else ["ping", "-c", "1", "-W", "1", ip_clean]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, timeout=2, check=False)
+        return "🟢 Pingable" if proc.returncode == 0 else "🔴 Not Pingable"
+    except Exception:
+        return "🟠 Ping Error"
+
+
+def initialize_ping_queue(df_in: pd.DataFrame) -> None:
+    if "ping_status_by_ip" not in st.session_state:
+        st.session_state.ping_status_by_ip = {}
+    if "ping_pending_ips" not in st.session_state:
+        st.session_state.ping_pending_ips = []
+
+    health_col = "Health" if "Health" in df_in.columns else ("Health State" if "Health State" in df_in.columns else None)
+    ip_col = "IP Address" if "IP Address" in df_in.columns else None
+    if not health_col or not ip_col or df_in.empty:
+        st.session_state.ping_pending_ips = []
+        return
+
+    health_text = df_in[health_col].fillna("").astype(str).str.lower()
+    offline_mask = health_text.str.contains("offline", na=False)
+    ip_series = df_in[ip_col].fillna("").astype(str).str.strip()
+    offline_ips = sorted({ip for ip in ip_series[offline_mask] if ip})
+    offline_ip_set = set(offline_ips)
+
+    for ip in list(st.session_state.ping_status_by_ip.keys()):
+        if ip not in offline_ip_set:
+            st.session_state.ping_status_by_ip.pop(ip, None)
+
+    for ip in offline_ips:
+        if ip not in st.session_state.ping_status_by_ip:
+            st.session_state.ping_status_by_ip[ip] = "🟡 Checking..."
+
+    pending = [
+        ip for ip in offline_ips
+        if st.session_state.ping_status_by_ip.get(ip) == "🟡 Checking..."
+    ]
+    st.session_state.ping_pending_ips = pending
+
+
+def process_ping_batch(batch_size: int = 2) -> bool:
+    pending = list(st.session_state.get("ping_pending_ips", []))
+    if not pending:
+        return False
+
+    batch = pending[:batch_size]
+    remaining = pending[batch_size:]
+    for ip in batch:
+        st.session_state.ping_status_by_ip[ip] = ping_one_ip(ip)
+    st.session_state.ping_pending_ips = remaining
+    return len(remaining) > 0
+
+
+def process_all_pending_pings(max_workers: int = 12) -> None:
+    pending = list(st.session_state.get("ping_pending_ips", []))
+    if not pending:
+        return
+
+    worker_count = max(1, min(max_workers, len(pending)))
+    with ThreadPoolExecutor(max_workers=worker_count) as pool:
+        future_to_ip = {pool.submit(ping_one_ip, ip): ip for ip in pending}
+        for future in as_completed(future_to_ip):
+            ip = future_to_ip[future]
+            try:
+                st.session_state.ping_status_by_ip[ip] = future.result()
+            except Exception:
+                st.session_state.ping_status_by_ip[ip] = "🟠 Ping Error"
+    st.session_state.ping_pending_ips = []
+
+
+def supports_fragment_scoped_rerun() -> bool:
+    try:
+        rerun_sig = inspect.signature(st.rerun)
+    except (TypeError, ValueError):
+        return False
+    return "scope" in rerun_sig.parameters
+
+
+def add_ping_status_for_issues(df_in: pd.DataFrame) -> pd.DataFrame:
+    out = df_in.copy()
+    if out.empty:
+        out["Ping Status"] = []
+        return out
+
+    health_col = "Health" if "Health" in out.columns else ("Health State" if "Health State" in out.columns else None)
+    ip_col = "IP Address" if "IP Address" in out.columns else None
+    out["Ping Status"] = "N/A"
+    if not health_col or not ip_col:
+        return out
+
+    health_text = out[health_col].fillna("").astype(str).str.lower()
+    offline_mask = health_text.str.contains("offline", na=False)
+    ip_series = out[ip_col].fillna("").astype(str).str.strip()
+    ping_map = st.session_state.get("ping_status_by_ip", {})
+
+    for idx in out.index:
+        if not bool(offline_mask.loc[idx]):
+            continue
+        ip_value = ip_series.loc[idx]
+        out.at[idx, "Ping Status"] = "⚪ No IP" if not ip_value else ping_map.get(ip_value, "🟡 Checking...")
+
+    return out
+
+
+# -----------------------------
+# UI
+# -----------------------------
+
+st.sidebar.header("Input")
+csv_path = st.sidebar.text_input("CSV path", value=DEFAULT_SITE_HEALTH_PATH)
+uploaded = st.sidebar.file_uploader("Or upload Site Health CSV", type=["csv"])
+load_clicked = st.sidebar.button("Load / Reload")
+st.sidebar.caption("For hands-off refreshes, point this at a scheduled Avigilon Site Health CSV export.")
+
+with st.sidebar.expander("TDX Ticket Automation", expanded=False):
+    tdx_email_to = TDX_HELPDESK_EMAIL
+    st.caption(f"Help tickets are sent to: {TDX_HELPDESK_EMAIL}")
+    smtp_host = st.text_input("SMTP host", value=os.getenv("SMTP_HOST", ""))
+    smtp_port = st.number_input("SMTP port", min_value=1, max_value=65535, value=int(os.getenv("SMTP_PORT", "587")))
+    smtp_username = st.text_input("SMTP username", value=os.getenv("SMTP_USERNAME", ""))
+    smtp_password = st.text_input("SMTP password", value=os.getenv("SMTP_PASSWORD", ""), type="password")
+    smtp_from_email = st.text_input("From email", value=os.getenv("SMTP_FROM", ""))
+
+should_load = load_clicked or (uploaded is not None) or os.path.exists(csv_path)
+if not should_load:
+    st.info("Set the CSV path (or upload a file) and click **Load / Reload**.")
+    st.stop()
+
+# Load view-level CSV
+try:
+    if uploaded is not None:
+        df = pd.read_csv(uploaded, engine="python", on_bad_lines="skip")
+        df = normalize_avigilon_headers(df)
+        if "Server Name" not in df.columns or "Device Name" not in df.columns:
+            st.warning("Upload didn’t include expected headers. If this was a Site Health export, use the path load instead.")
+            st.stop()
+    else:
+        df = read_site_health_csv(csv_path)
+except Exception as e:
+    st.error(f"Failed to load CSV: {e}")
+    st.stop()
+
+# Validate minimum columns
+required_cols = {"Server Name", "Device Name"}
+missing = required_cols - set(df.columns)
+if missing:
+    st.error(f"CSV is missing required columns: {sorted(list(missing))}")
+    st.stop()
+
+# Physical identity + notes identity
+df["physical_key"] = build_physical_key(df)
+df["key"] = df["physical_key"]  # notes follow physical camera
+df["Device Name Base"] = device_name_base(df)
+
+# Merge notes into views
+notes_df = load_notes(NOTES_PATH)
+df = df.merge(notes_df, on="key", how="left")
+df["disposition"] = df["disposition"].fillna("")
+df["notes"] = df["notes"].fillna("")
+
+# Health on views
+df = compute_health_state(df)
+
+# Keep views + build devices
+df_views = df.copy()
+df_devices = build_devices_table(df_views)
+observed_at = utc_now_timestamp()
+tracking_df = load_tracking_state(TRACKING_PATH)
+tickets_df = load_tickets(TICKETS_PATH)
+df_devices, tracking_df, tickets_df, ticket_notices, ticket_errors = sync_tracking_and_tickets(
+    df_devices,
+    tracking_df,
+    tickets_df,
+    observed_at,
+    tdx_email_to=tdx_email_to,
+    smtp_settings={
+        "host": smtp_host,
+        "port": smtp_port,
+        "username": smtp_username,
+        "password": smtp_password,
+        "from_email": smtp_from_email,
+    },
+)
+# Ticket automation notices/errors
+for note in ticket_notices:
+    st.toast(note)
+for err in ticket_errors:
+    st.toast(err, icon="⚠️")
+# -------- Brand rollup (device-level) --------
+for d in [df_views, df_devices]:
+    make_norm = d["Make"].astype(str).str.strip().str.lower()
+    d["Brand"] = "Other"
+    d.loc[make_norm.str.contains("avigilon", na=False), "Brand"] = "Avigilon"
+    d.loc[make_norm.str.contains("axis", na=False), "Brand"] = "Axis"
+    d.loc[make_norm.isin(["", "nan", "none"]), "Brand"] = "Unknown"
+
+# ── Summary bar ─────────────────────────────────────────────────────────────
+
+if "view_mode" not in st.session_state:
+    st.session_state.view_mode = "devices"
+
+brand_options = ["Avigilon", "Axis", "Other", "Unknown"]
+
+if "brand_select" not in st.session_state:
+    st.session_state.brand_select = []
+
+def on_metric_click(btype):
+    if btype == "unique":
+        st.session_state.view_mode = "devices"
+        st.session_state.brand_select = []
+    elif btype == "export":
+        st.session_state.view_mode = "views"
+        st.session_state.brand_select = []
+    elif btype == "avigilon":
+        st.session_state.view_mode = "devices"
+        st.session_state.brand_select = ["Avigilon"]
+    elif btype == "axis":
+        st.session_state.view_mode = "devices"
+        st.session_state.brand_select = ["Axis"]
+    elif btype == "other":
+        st.session_state.view_mode = "devices"
+        st.session_state.brand_select = ["Other", "Unknown"]
+
+m1, m2, m3, m4, m5 = st.columns(5)
+with m1:
+    st.button(f"📷 Unique: {df_devices['physical_key'].nunique():,}", on_click=on_metric_click, args=("unique",), use_container_width=True)
+with m2:
+    st.button(f"📋 Rows: {len(df_views):,}", on_click=on_metric_click, args=("export",), use_container_width=True)
+with m3:
+    st.button(f"Avigilon: {len(df_devices[df_devices['Brand'] == 'Avigilon']):,}", on_click=on_metric_click, args=("avigilon",), use_container_width=True)
+with m4:
+    st.button(f"Axis: {len(df_devices[df_devices['Brand'] == 'Axis']):,}", on_click=on_metric_click, args=("axis",), use_container_width=True)
+with m5:
+    st.button(f"Other: {len(df_devices[df_devices['Brand'].isin(['Other', 'Unknown'])]):,}", on_click=on_metric_click, args=("other",), use_container_width=True)
+
+# ── Sidebar Filters ──────────────────────────────────────────────────────────
+with st.sidebar.expander("⚙️ Advanced Filters", expanded=False):
+    st.caption("These filters apply to both tabs.")
+    brand_selected = st.multiselect(
+        "Brand",
+        options=brand_options,
+        key="brand_select",
+    )
+    
+    health_options = ["Online", "Offline", "Offline (but still visible)"]
+    health_selected = st.multiselect(
+        "Health state",
+        options=health_options,
+        default=[],
+        key="health_select",
+    )
+    
+    show_only_issues = st.checkbox(
+        "Show only issue rows",
+        value=False,
+        help="Offline, not visible, failed status, or non-empty Error Flags.",
+    )
+    
+    connected_filter = st.selectbox("Connected", ["Any", "TRUE", "FALSE"], index=0)
+    visible_filter = st.selectbox("Visible", ["Any", "TRUE", "FALSE"], index=0)
+
+with st.sidebar.expander("Columns found (views export)"):
+    st.write(list(df_views.columns))
+
+# ── Main Area: Search ────────────────────────────────────────────────────────
+divider_shadow = "0 4px 16px rgba(70, 29, 124, 0.22)" if theme_dark_mode else "0 3px 10px rgba(70, 29, 124, 0.12)"
+st.markdown(
+    f"""
+    <div style="height:18px;"></div>
+    <div style="
+        height:4px;
+        margin:0 0 18px 0;
+        border-radius:999px;
+        background:linear-gradient(90deg, rgba(70, 29, 124, 0.98) 0%, rgba(253, 208, 35, 0.92) 50%, rgba(70, 29, 124, 0.98) 100%);
+        box-shadow:{divider_shadow};
+    "></div>
+    """,
+    unsafe_allow_html=True,
+)
+search_text = st.text_input(
+    "🔍 Search Devices",
+    placeholder="Device name, location, IP, MAC, server, model…",
+)
+
+# ── Apply all filters ────────────────────────────────────────────────────────
+if st.session_state.get("view_mode", "devices") == "views":
+    base = df_views.copy()
+else:
+    base = df_devices.copy()
+filtered = base.copy()
+
+if brand_selected:
+    filtered = filtered[filtered["Brand"].isin(brand_selected)]
+filtered = apply_global_search(filtered, search_text)
+if health_selected:
+    filtered = filtered[filtered["Health State"].isin(health_selected)]
+if connected_filter != "Any":
+    want = connected_filter == "TRUE"
+    filtered = filtered[filtered["Connected_bool"] == want]
+if visible_filter != "Any":
+    want = visible_filter == "TRUE"
+    filtered = filtered[filtered["Visible_bool"] == want]
+
+has_err = filtered["Error Flags"].astype(str).str.strip().replace({"nan": "", "None": "", "none": ""}).ne("")
+failed_status = filtered["Status"].astype(str).str.contains("fail", case=False, na=False)
+not_online = filtered["Health State"].ne("Online")
+not_connected = ~filtered["Connected_bool"]
+not_visible = ~filtered["Visible_bool"]
+
+issues_mask = not_online | not_connected | not_visible | has_err | failed_status
+
+if show_only_issues:
+    filtered = filtered[issues_mask]
+    issues_mask = pd.Series(True, index=filtered.index)
+
+issues_df = filtered[issues_mask]
+all_df = filtered
+
+open_ticket_states = ["Open"]
+open_tickets_df = tickets_df[tickets_df["ticket_state"].isin(open_ticket_states)].copy()
+pending_tickets_df = tickets_df[tickets_df["ticket_state"] == "Pending Send"].copy()
+issue_keys = set(issues_df["key"].astype(str)) if "key" in issues_df.columns else set()
+pending_issue_tickets_df = pending_tickets_df[
+    pending_tickets_df["key"].astype(str).isin(issue_keys)
+].copy()
+
+# ── Worklist Tabs ────────────────────────────────────────────────────────────
+st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
+st.caption(f"Worklist from current filters: {len(issues_df):,} need attention | {len(open_tickets_df):,} open tickets | {len(all_df):,} cameras total.")
+# Tabs are defined below after ticket state is prepared.
+
+preferred_cols = [
+    "Health",
+    "Device Name Base",
+    "key",
+    "IP Address",
+    "Offline For (hrs)",
+    "Ticket ID",
+    "Error Flags",
+    "Servers",
+    "Ping Status",
+    "disposition",
+    "notes",
+    "Location",
+    "Ticket Status",
+]
+
+AGGRID_HEADER_LABELS = {
+    "Device Name Base": "Camera Name",
+    "key": "MAC Address",
+    "Offline For (hrs)": "Offline Hrs",
+    "Ticket Status": "Ticket",
+    "Error Flags": "Errors",
+    "Create TDX": "TDX",
+}
+
+# Widths tuned from the provided browser screenshot.
+CAMERA_GRID_WIDTHS_ALL = {
+    "Health": 180,
+    "Device Name Base": 275,
+    "key": 135,
+    "IP Address": 130,
+    "Offline For (hrs)": 105,
+    "Ticket ID": 105,
+    "Error Flags": 360,
+    "Ping Status": 120,
+    "Servers": 355,
+    "disposition": 160,
+    "notes": 260,
+    "Location": 220,
+    "Ticket Status": 120,
+}
+
+CAMERA_GRID_WIDTHS_ISSUES = {
+    "Health": 180,
+    "Device Name Base": 275,
+    "key": 135,
+    "IP Address": 130,
+    "Ping Status": 120,
+    "Offline For (hrs)": 105,
+    "Ticket ID": 105,
+    "Create TDX": 70,
+    "Error Flags": 360,
+    "Servers": 355,
+    "disposition": 160,
+    "notes": 260,
+    "Location": 220,
+    "Ticket Status": 120,
+}
+
+def save_notes_from_editor(edited_df: pd.DataFrame):
+    edited_notes = edited_df[["key", "disposition", "notes"]].copy()
+    existing = load_notes(NOTES_PATH)
+    combined = pd.concat([existing[~existing["key"].isin(edited_notes["key"])], edited_notes], ignore_index=True)
+    save_notes(NOTES_PATH, combined)
+    st.success(f"Saved notes to: {NOTES_PATH}")
+
+
+def save_tickets_from_editor(edited_df: pd.DataFrame):
+    existing = load_tickets(TICKETS_PATH)
+    keep = existing[~existing["ticket_key"].isin(edited_df["ticket_key"])]
+    combined = pd.concat([keep, edited_df], ignore_index=True)
+    save_tickets(TICKETS_PATH, combined)
+    st.success(f"Saved tickets to: {TICKETS_PATH}")
+
+
+def render_data_editor(
+    data_subset: pd.DataFrame,
+    key_suffix: str,
+    preferred_order: list[str] | None = None,
+    enable_inline_tdx_actions: bool = False,
+    default_visible_cols: list[str] | None = None,
+):
+    order = preferred_order if preferred_order is not None else preferred_cols
+    available_cols = [c for c in order if c in data_subset.columns]
+    available_cols += [c for c in data_subset.columns if c not in available_cols]
+
+    if data_subset.empty:
+        st.info("No cameras match the current filters in this view.")
+        return
+
+    default_open_cols = (
+        [c for c in default_visible_cols]
+        if default_visible_cols is not None
+        else [
+            "Health",
+            "Device Name Base",
+            "key",
+            "IP Address",
+            "Offline For (hrs)",
+            "Ticket ID",
+            "Error Flags",
+        ]
+    )
+    inline_tdx_col = "Create TDX"
+    if enable_inline_tdx_actions:
+        data_subset = data_subset.copy()
+        data_subset[inline_tdx_col] = False
+        if inline_tdx_col not in available_cols:
+            available_cols.append(inline_tdx_col)
+        if "Error Flags" in default_open_cols:
+            default_open_cols.insert(default_open_cols.index("Error Flags"), inline_tdx_col)
+        else:
+            default_open_cols.append(inline_tdx_col)
+    default_open_cols = [c for c in default_open_cols if c in available_cols]
+    optional_cols = [c for c in available_cols if c not in default_open_cols]
+    selected_optional_cols = st.multiselect(
+        "Show Additional Columns",
+        options=optional_cols,
+        default=[],
+        key=f"extra_cols_{key_suffix}",
+        help="These columns are hidden by default. Select any to add them to the table.",
+    )
+    display_cols = default_open_cols + [c for c in selected_optional_cols if c in optional_cols]
+    if not display_cols:
+        display_cols = available_cols
+
+    width_map = CAMERA_GRID_WIDTHS_ISSUES if key_suffix == "issues" else CAMERA_GRID_WIDTHS_ALL
+    editable_cols = {"disposition", "notes"}
+    if enable_inline_tdx_actions:
+        editable_cols.add(inline_tdx_col)
+
+    grid_df = data_subset[available_cols].copy()
+    display_df = grid_df[display_cols].copy()
+
+    disposition_options = ["", "Investigating", "Vendor", "ITS/Network", "Construction", "Offline/Expected", "Replaced", "Closed"]
+
+    def editor_width(col_name: str) -> str:
+        px = int(width_map.get(col_name, 160))
+        if px <= 115:
+            return "small"
+        if px <= 220:
+            return "medium"
+        return "large"
+
+    column_config: dict[str, object] = {}
+    for col in display_cols:
+        header = AGGRID_HEADER_LABELS.get(col, col)
+        width = editor_width(col)
+        if col == "disposition":
+            column_config[col] = st.column_config.SelectboxColumn(
+                header,
+                options=disposition_options,
+                width=width,
+            )
+        elif col == inline_tdx_col:
+            column_config[col] = st.column_config.CheckboxColumn(
+                header,
+                width="small",
+            )
+        elif col == "Offline For (hrs)":
+            column_config[col] = st.column_config.NumberColumn(
+                header,
+                format="%.1f",
+                width=width,
+            )
+        else:
+            column_config[col] = st.column_config.TextColumn(
+                header,
+                width=width,
+            )
+
+    edited_display = st.data_editor(
+        display_df,
+        width="stretch",
+        height=550,
+        hide_index=True,
+        disabled=[c for c in display_cols if c not in editable_cols],
+        column_config=column_config,
+        key=f"editor_{key_suffix}",
+    )
+
+    edited = grid_df.copy()
+    if isinstance(edited_display, pd.DataFrame) and not edited_display.empty:
+        for col in display_cols:
+            if col in edited_display.columns:
+                edited[col] = edited_display[col]
+
+    if enable_inline_tdx_actions and inline_tdx_col in edited.columns and "key" in edited.columns:
+        checked_mask = (
+            edited[inline_tdx_col]
+            .fillna(False)
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .isin(["true", "1", "yes", "y", "t"])
+        )
+        checked_keys = set(
+            edited.loc[checked_mask, "key"].astype(str).tolist()
+        )
+        state_key = f"inline_tdx_checked_{key_suffix}"
+        prev_checked_keys = set(st.session_state.get(state_key, set()))
+        newly_checked_keys = checked_keys - prev_checked_keys
+
+        if newly_checked_keys:
+            source = data_subset.copy()
+            source["key"] = source["key"].astype(str)
+            sent_count = 0
+            failed_count = 0
+            skipped_count = 0
+            for cam_key in sorted(newly_checked_keys):
+                row_match = source[source["key"] == cam_key]
+                if row_match.empty:
+                    failed_count += 1
+                    continue
+                row = row_match.iloc[0]
+                if not is_row_eligible_for_manual_tdx(row):
+                    skipped_count += 1
+                    continue
+                sent, err = send_manual_tdx_ticket_for_row(
+                    row=row,
+                    smtp_host=smtp_host,
+                    smtp_port=smtp_port,
+                    smtp_username=smtp_username,
+                    smtp_password=smtp_password,
+                    smtp_from_email=smtp_from_email,
+                    tdx_email_to=tdx_email_to,
+                )
+                if sent:
+                    sent_count += 1
+                else:
+                    failed_count += 1
+                    camera_name = row_first_non_empty(row, ["Device Name Base", "Device Name", "key"]) or cam_key
+                    st.toast(f"TDX email failed for {camera_name}: {err}", icon="⚠️")
+
+            if sent_count:
+                st.toast(f"Sent {sent_count} TDX ticket email(s).")
+            if skipped_count:
+                st.toast(f"Skipped {skipped_count} row(s): only offline + not-pingable rows are allowed.")
+
+        st.session_state[state_key] = checked_keys
+
+    if st.button("Save Notes", key=f"save_{key_suffix}"):
+        notes_source = edited.copy()
+        for col in ["key", "disposition", "notes"]:
+            if col not in notes_source.columns:
+                notes_source[col] = data_subset[col] if col in data_subset.columns else ""
+        save_notes_from_editor(notes_source)
+
+
+def render_action_required_ticket_queue(ticket_subset: pd.DataFrame):
+    st.markdown("###### Help Ticket Queue")
+    if ticket_subset.empty:
+        st.info("No pending help tickets for the current Action Required filters.")
+        return
+
+    if "selected_tickets" not in st.session_state:
+        st.session_state.selected_tickets = set()
+
+    all_keys = set(ticket_subset["ticket_key"].astype(str).tolist())
+    st.session_state.selected_tickets.intersection_update(all_keys)
+
+    queue_df = ticket_subset[["ticket_key", "device_name", "location", "offline_hours_at_creation", "health_state"]].copy()
+    queue_df["ticket_key"] = queue_df["ticket_key"].astype(str)
+    queue_df["Select"] = queue_df["ticket_key"].isin(st.session_state.selected_tickets)
+    queue_df = queue_df[["Select", "device_name", "location", "offline_hours_at_creation", "health_state", "ticket_key"]]
+
+    queue_edited = st.data_editor(
+        queue_df,
+        width="stretch",
+        height=260,
+        hide_index=True,
+        disabled=["device_name", "location", "offline_hours_at_creation", "health_state", "ticket_key"],
+        column_config={
+            "Select": st.column_config.CheckboxColumn("Select", width="small"),
+            "device_name": st.column_config.TextColumn("Camera", width="medium"),
+            "location": st.column_config.TextColumn("Location", width="medium"),
+            "offline_hours_at_creation": st.column_config.NumberColumn("Offline Hrs", format="%.1f", width="small"),
+            "health_state": st.column_config.TextColumn("Health", width="small"),
+            "ticket_key": st.column_config.TextColumn("Ticket Key", width="small"),
+        },
+        key="action_required_ticket_queue",
+    )
+
+    selected_keys = set(queue_edited.loc[queue_edited["Select"], "ticket_key"].astype(str).tolist())
+    st.session_state.selected_tickets = selected_keys
+    selected_count = len(selected_keys)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        all_selected = len(all_keys) > 0 and all_keys.issubset(selected_keys)
+        if st.button("Deselect All" if all_selected else "Select All", key="tab2_select_all", use_container_width=True):
+            st.session_state.selected_tickets = set() if all_selected else set(all_keys)
+            st.rerun()
+
+    with c2:
+        if st.button(f"Create Help Ticket ({selected_count})", key="tab2_create_help_ticket", use_container_width=True, disabled=selected_count == 0):
+            selected_rows = tickets_df[
+                tickets_df["ticket_key"].astype(str).isin(selected_keys)
+                & tickets_df["ticket_state"].eq("Pending Send")
+            ]
+            sent_count = 0
+            failed_count = 0
+
+            for idx, row in selected_rows.iterrows():
+                dev_match = df_devices[df_devices["key"] == row["key"]]
+                if dev_match.empty:
+                    failed_count += 1
+                    tickets_df.loc[idx, "last_error"] = "Could not find full device info for email."
+                    continue
+
+                dev = dev_match.iloc[0]
+                body = build_ticket_email_body(dev, row["offline_hours_at_creation"])
+                sent, err = send_ticket_email(
+                    smtp_host, smtp_port, smtp_username, smtp_password,
+                    smtp_from_email, tdx_email_to, row["email_subject"], body,
+                )
+                if sent:
+                    sent_count += 1
+                    t_key = str(row["ticket_key"])
+                    tickets_df.loc[idx, "ticket_state"] = "Open"
+                    tickets_df.loc[idx, "email_sent_at"] = format_timestamp(utc_now_timestamp())
+                    tickets_df.loc[idx, "last_error"] = ""
+                    st.session_state.selected_tickets.discard(t_key)
+                else:
+                    failed_count += 1
+                    tickets_df.loc[idx, "last_error"] = str(err)
+
+            save_tickets(TICKETS_PATH, tickets_df)
+            if sent_count:
+                st.toast(f"Created {sent_count} help ticket email(s).")
+            if failed_count:
+                st.toast(f"{failed_count} ticket email(s) failed. Check Last Email Error in Open Tickets.")
+            st.rerun()
+
+    with c3:
+        if st.button(f"Acknowledge ({selected_count})", key="tab2_ack_selected", use_container_width=True, disabled=selected_count == 0):
+            ack_mask = (
+                tickets_df["ticket_key"].astype(str).isin(selected_keys)
+                & tickets_df["ticket_state"].eq("Pending Send")
+            )
+            tickets_df.loc[ack_mask, "ticket_state"] = "Acknowledged"
+            save_tickets(TICKETS_PATH, tickets_df)
+            st.session_state.selected_tickets.clear()
+            st.rerun()
+tab1, tab2, tab3 = st.tabs([
+    f"All Cameras ({len(all_df)})",
+    f"Action Required ({len(issues_df)})",
+    f"Open Tickets ({len(open_tickets_df)})",
+])
+
+
+def render_tickets_editor(ticket_subset: pd.DataFrame):
+    if ticket_subset.empty:
+        st.info("No queued or open tickets right now.")
+        return
+
+    cols = [
+        "ticket_key", "ticket_state", "ticket_id", "device_name", "location",
+        "offline_since", "offline_hours_at_creation", "email_to", "created_at",
+        "email_sent_at", "resolution", "resolution_notes", "last_error",
+    ]
+    edited = st.data_editor(
+        ticket_subset[cols],
+        width="stretch",
+        height=420,
+        hide_index=True,
+        disabled=[c for c in cols if c not in ["ticket_state", "ticket_id", "resolution", "resolution_notes"]],
+        column_config={
+            "ticket_state": st.column_config.SelectboxColumn("State", options=["Pending Send", "Open", "Acknowledged", "Resolved"]),
+            "ticket_id": st.column_config.TextColumn("TDX Ticket", width="medium"),
+            "device_name": st.column_config.TextColumn("Camera", width="large"),
+            "location": st.column_config.TextColumn("Location", width="large"),
+            "offline_hours_at_creation": st.column_config.NumberColumn("Offline Hrs", format="%.1f", width="small"),
+            "resolution": st.column_config.SelectboxColumn(
+                "Resolution",
+                options=["", "Investigating", "Resolved", "Replaced", "Removed", "False Alarm"],
+                width="medium",
+            ),
+            "resolution_notes": st.column_config.TextColumn("Resolution Notes", width="large"),
+            "last_error": st.column_config.TextColumn("Last Email Error", width="large"),
+        },
+        key="ticket_editor",
+    )
+
+    if st.button("Save Tickets", key="save_tickets"):
+        save_tickets_from_editor(edited)
+
+
+with tab1:
+    st.subheader("All Filtered Cameras")
+    st.caption("Full filtered inventory for browsing and spot checks.")
+    render_data_editor(all_df, "all")
+
+@st.fragment
+def render_action_required_tab():
+    st.subheader("Cameras Requiring Attention")
+    st.caption("Prioritized rows: offline, failed, not visible, disconnected, or with error flags. Offline rows include live ping status.")
+    if st.button("Refresh Ping Status", key="refresh_ping_status"):
+        st.session_state.ping_status_by_ip = {}
+        st.session_state.ping_pending_ips = []
+    initialize_ping_queue(issues_df)
+    can_fragment_rerun = supports_fragment_scoped_rerun()
+    if can_fragment_rerun:
+        still_pinging = process_ping_batch(batch_size=2)
+    else:
+        pending_ping_count = len(st.session_state.get("ping_pending_ips", []))
+        if pending_ping_count > 0:
+            with st.spinner(f"Pinging offline cameras ({pending_ping_count})..."):
+                process_all_pending_pings()
+        still_pinging = False
+    issues_with_ping = add_ping_status_for_issues(issues_df)
+    issues_display_order = [
+        "Health",
+        "Device Name Base",
+        "key",
+        "IP Address",
+        "Offline For (hrs)",
+        "Ticket ID",
+        "Error Flags",
+        "Ping Status",
+        "Servers",
+        "disposition",
+        "notes",
+        "Location",
+        "Ticket Status",
+    ]
+    render_data_editor(
+        issues_with_ping,
+        "issues",
+        preferred_order=issues_display_order,
+        enable_inline_tdx_actions=True,
+        default_visible_cols=[
+            "Health",
+            "Device Name Base",
+            "key",
+            "IP Address",
+            "Ping Status",
+            "Offline For (hrs)",
+            "Ticket ID",
+            "Error Flags",
+        ],
+    )
+    pending_ping_count = len(st.session_state.get("ping_pending_ips", []))
+    if pending_ping_count > 0:
+        st.caption(f"Pinging cameras... {pending_ping_count} remaining")
+    st.caption("Create help tickets or acknowledge pending items from this filtered action queue.")
+    render_action_required_ticket_queue(pending_issue_tickets_df)
+    if still_pinging:
+        try:
+            st.rerun(scope="fragment")
+        except StreamlitAPIException:
+            st.rerun()
+
+
+with tab2:
+    render_action_required_tab()
+
+with tab3:
+    st.subheader("Queued / Open Tickets")
+    st.caption("Active ticket queue tracked until resolved, removed, or replaced.")
+    render_tickets_editor(open_tickets_df)
+
+
+
