@@ -1,0 +1,328 @@
+timestamp_utc,key,from_state,to_state,device_name,location
+2026-03-10T19:43:32+00:00,00:03:C5:04:A4:5C,Offline (but still visible),Online,MOBOTIX-D12D-IT,None
+2026-03-10T19:43:32+00:00,00:18:85:45:90:2E,Offline (but still visible),Online,AFSB - S Wall,Animal Food Science Building
+2026-03-10T19:43:32+00:00,00:18:85:45:A0:A1,Online,Offline (but still visible),NGA Garage - 2F East,Nicholson Gateway Garage
+2026-03-10T19:43:32+00:00,00:18:85:45:A9:FF,Offline (but still visible),Online,Levee Cam,Levee @ Skip Bertman
+2026-03-10T19:43:32+00:00,00:18:85:48:75:69,Online,Offline (but still visible),Blake - E Entrance,Blake Hall
+2026-03-10T19:43:32+00:00,00:18:85:49:0B:90,Online,Offline (but still visible),Blake - W Entrance,Blake Hall
+2026-03-10T19:43:32+00:00,00:18:85:49:D1:49,Online,Offline (but still visible),Blake - N Entrance,Blake Hall
+2026-03-10T19:43:32+00:00,00:18:85:5A:2D:35,Online,Offline (but still visible),Gymnastics - NW Corner,Gymnastics
+2026-03-10T19:43:32+00:00,00:18:85:5C:97:1C,Online,Offline (but still visible),P&T - S Stadium at Tower Dr,Parking & Transportation
+2026-03-10T19:43:32+00:00,00:18:85:5D:C6:FF,Offline (but still visible),Online,LETC - SE Corner,LETC
+2026-03-10T19:43:32+00:00,00:18:85:5D:C7:A1,Offline (but still visible),Online,LETC - NE Corner,LETC
+2026-03-10T19:43:32+00:00,00:18:85:5F:27:57,Offline (but still visible),Online,Union - 2F Ballroom,Student Union
+2026-03-10T19:43:32+00:00,00:40:8C:DA:C7:11,Online,Offline (but still visible),E Laville - 2F Stair,E Laville Hall
+2026-03-10T19:43:32+00:00,00:40:8C:EF:B4:AC,Online,Offline (but still visible),Blake - S Entrance,None
+2026-03-10T19:43:32+00:00,1.1.accc8ea1b46d,Offline (but still visible),Online,Riverbend - W Lounge,None
+2026-03-10T19:43:32+00:00,AC:CC:8E:A1:B4:30,Online,Offline (but still visible),Canal - Bus Stop,None
+2026-03-10T19:43:32+00:00,AC:CC:8E:A1:B4:39,Online,Offline (but still visible),NGA Garage - 4F East (South),Nicholson Gateway Garage
+2026-03-10T19:43:32+00:00,AC:CC:8E:A1:EC:60,Online,Offline (but still visible),U-High - C Bldg New Elem West,U-High School
+2026-03-10T19:43:32+00:00,AC:CC:8E:A4:3E:19,Online,Offline (but still visible),Oxbow - 3F Elev Lobby,None
+2026-03-10T19:43:32+00:00,AC:CC:8E:CC:5E:FC,Online,Offline (but still visible),Evangeline NE Ext,Evangeline Hall
+2026-03-10T19:43:32+00:00,AC:CC:8E:CC:5F:78,Online,Offline (but still visible),Evangeline - NE Lobby Front Desk,Evangeline Hall
+2026-03-10T19:43:32+00:00,AC:CC:8E:CD:F3:A9,Offline (but still visible),Online,Cedar - 5F Elev Lobby S,Cedar Hall
+2026-03-10T19:43:32+00:00,AC:CC:8E:CD:F3:D1,Offline (but still visible),Online,Cedar - 5F Elev Lobby N,Cedar Hall
+2026-03-10T19:43:32+00:00,AC:CC:8E:D5:3E:25,Offline (but still visible),Online,FB Ops - All Amer Hall,FB Ops
+2026-03-10T19:43:32+00:00,AC:CC:8E:D5:3F:B2,Offline (but still visible),Online,FB Ops - 1st Team SEC,FB Ops
+2026-03-10T19:43:32+00:00,AC:CC:8E:D5:40:0C,Offline (but still visible),Online,FB Ops - 2F N Hallway,FB Ops
+2026-03-10T19:43:32+00:00,AC:CC:8E:D5:41:A4,Offline (but still visible),Online,FB Ops 2F - Rm 264,FB Ops
+2026-03-10T19:43:32+00:00,AC:CC:8E:D5:A4:D3,Offline (but still visible),Online,Cedar - 4F Elev Lobby N,Cedar Hall
+2026-03-10T19:43:32+00:00,AC:CC:8E:D5:A5:59,Offline (but still visible),Online,Cedar - 2F Elev Lobby N,Cedar Hall
+2026-03-10T19:43:32+00:00,AC:CC:8E:D5:EC:5D,Offline (but still visible),Online,FB Ops 2F - Rm 247,FB Ops
+2026-03-10T19:43:32+00:00,AC:CC:8E:F6:3F:68,Offline (but still visible),Online,LETC - Stairwell,LETC
+2026-03-10T19:43:32+00:00,AC:CC:8E:FD:7A:0A,Offline (but still visible),Online,Ground Elev Hall - Camera,Highland Hall
+2026-03-10T19:43:32+00:00,B8:A4:4F:07:09:BA,Offline (but still visible),Online,LETC - Main Lobby,LETC
+2026-03-10T19:43:32+00:00,B8:A4:4F:07:0A:0B,Offline (but still visible),Online,LETC - Interior Loading Dock,LETC
+2026-03-10T19:43:32+00:00,B8:A4:4F:3C:72:B9,Online,Offline (but still visible),Camellia - 3F Lounge,Camellia Hall
+2026-03-10T19:43:32+00:00,B8:A4:4F:68:2A:C5,Online,Offline (but still visible),Union - 2F Dining 201,None
+2026-03-10T19:43:32+00:00,B8:A4:4F:68:61:3F,Online,Offline (but still visible),Ed Gay - Pedestrian Gate / Playground,Ed Gay Apartments
+2026-03-10T19:43:32+00:00,B8:A4:4F:68:62:08,Online,Offline (but still visible),Ed Gay - Playground,None
+2026-03-11T12:48:45+00:00,00:18:85:48:75:69,Offline (but still visible),Online,Blake - E Entrance,Blake Hall
+2026-03-11T12:48:45+00:00,00:18:85:49:0B:90,Offline (but still visible),Online,Blake - W Entrance,Blake Hall
+2026-03-11T12:48:45+00:00,00:18:85:49:D1:49,Offline (but still visible),Online,Blake - N Entrance,Blake Hall
+2026-03-11T12:48:45+00:00,00:40:8C:EF:B4:AC,Offline (but still visible),Online,Blake - S Entrance,None
+2026-03-11T13:15:18+00:00,AC:CC:8E:0B:97:05,Offline (but still visible),Online,Tgr St - S Stadium - Suites 241 S,Tiger Stadium
+2026-03-11T13:15:18+00:00,AC:CC:8E:A1:EC:60,Offline (but still visible),Online,U-High - C Bldg New Elem West,U-High School
+2026-03-11T13:15:18+00:00,AC:CC:8E:CC:5E:FC,Offline (but still visible),Online,Evangeline NE Ext,Evangeline Hall
+2026-03-11T13:15:18+00:00,AC:CC:8E:CC:5F:78,Offline (but still visible),Online,Evangeline - NE Lobby Front Desk,Evangeline Hall
+2026-03-11T13:15:18+00:00,B8:A4:4F:28:19:E1,Offline (but still visible),Online,SVM Steph - 2F Tech Lounge,SVM Stephenson Pet Clinic
+2026-03-11T13:15:18+00:00,B8:A4:4F:28:56:E0,Offline (but still visible),Online,SVM Steph - 1F S Hall,SVM Stephenson Pet Clinic
+2026-03-11T13:15:18+00:00,B8:A4:4F:3C:72:B9,Offline (but still visible),Online,Camellia - 3F Lounge,Camellia Hall
+2026-03-11T13:15:18+00:00,B8:A4:4F:3C:75:1E,Offline (but still visible),Online,Azalea - 1F Elev 1 Lobby,Azalea Hall
+2026-03-11T13:15:18+00:00,B8:A4:4F:40:FA:8E,Offline (but still visible),Online,Camellia Hall - NW Corner,Camellia Hall
+2026-03-11T13:15:18+00:00,B8:A4:4F:68:2A:C5,Offline (but still visible),Online,Union - 2F Dining 201,None
+2026-03-11T13:15:18+00:00,B8:A4:4F:68:61:3F,Offline (but still visible),Online,Ed Gay - Pedestrian Gate / Playground,Ed Gay Apartments
+2026-03-11T13:15:18+00:00,B8:A4:4F:68:62:08,Offline (but still visible),Online,Ed Gay - Playground,None
+2026-03-11T13:17:01+00:00,00:18:85:66:53:CB,Offline (but still visible),Online,HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-11T14:24:42+00:00,00:18:85:4E:BD:EB,Online,Offline (but still visible),Libr - Rear Entry/Exit,Main Library
+2026-03-11T14:24:42+00:00,00:18:85:5C:5B:30,Offline (but still visible),Online,U-High - 1F Elem Hall South,U-High School
+2026-03-11T14:24:42+00:00,00:18:85:5D:C6:D9,Online,Offline (but still visible),Highland Hall - NE Face,Highland Hall
+2026-03-11T14:24:42+00:00,00:18:85:5D:E8:E4,Offline (but still visible),Online,UREC - NGA - NW,NGA UREC
+2026-03-11T14:24:42+00:00,00:18:85:66:53:CB,Online,Offline (but still visible),HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-11T14:24:42+00:00,AC:CC:8E:0B:85:57,Offline (but still visible),Online,Tgr St - South Stadium - Section 563,Tiger Stadium - S Stadium
+2026-03-11T14:24:42+00:00,AC:CC:8E:68:3F:C1,Online,Offline (but still visible),PFT - SW Exterior,Patrick F Taylor Hall
+2026-03-11T14:24:42+00:00,AC:CC:8E:68:40:A4,Offline (but still visible),Online,PFT - E Exterior North,Patrick F Taylor
+2026-03-11T14:24:42+00:00,AC:CC:8E:8F:76:CC,Offline (but still visible),Online,UREC - Court 2 Portal,UREC
+2026-03-11T14:24:42+00:00,AC:CC:8E:A1:3C:51,Online,Offline (but still visible),Law - 1F Rm,Hebert Law School
+2026-03-11T14:24:42+00:00,AC:CC:8E:A1:A4:AC,Offline (but still visible),Online,Spruce Hall - 1F Lobby,Spruce Hall
+2026-03-11T14:24:42+00:00,AC:CC:8E:C0:B9:08,Online,Offline (but still visible),BEC - NW Corner,Business Education Complex
+2026-03-11T14:24:42+00:00,AC:CC:8E:CD:F4:B0,Offline (but still visible),Online,FB Ops - Outdoor Field Entrance,FB Ops
+2026-03-11T14:24:42+00:00,AC:CC:8E:CD:F5:52,Online,Offline (but still visible),Cedar - 2F Elev Lobby S,Cedar Hall
+2026-03-11T14:24:42+00:00,AC:CC:8E:D5:1D:0F,Offline (but still visible),Online,UREC - Maintenance SW,UREC
+2026-03-11T14:24:42+00:00,AC:CC:8E:D5:3F:31,Offline (but still visible),Online,FB Ops 2F - W Seating,FB Ops
+2026-03-11T14:24:42+00:00,AC:CC:8E:D5:40:9F,Online,Offline (but still visible),FB Ops - Front Entrance,FB Ops
+2026-03-11T14:24:42+00:00,AC:CC:8E:D5:A4:1A,Offline (but still visible),Online,Cedar - 3F Elev Lobby N,Cedar Hall
+2026-03-11T14:24:42+00:00,B8:A4:4F:2B:D1:AD,Offline (but still visible),Online,Innovation Park - Bldg 3005 SE,Innovation Park
+2026-03-11T14:24:42+00:00,B8:A4:4F:36:34:D1,Offline (but still visible),Online,Camellia Hall - 5F Stair 2,None
+2026-03-11T14:24:42+00:00,B8:A4:4F:3C:78:9A,Offline (but still visible),Online,Camellia - Custodial/Storage,Camellia Hall
+2026-03-11T14:25:24+00:00,00:18:85:25:63:92,Online,Offline (but still visible),Tgr St - Gate 11,Tiger Stadium
+2026-03-11T14:25:24+00:00,00:18:85:43:66:80,Online,Offline (but still visible),Himes - Check-In Line,Himes Testing Center
+2026-03-11T14:25:24+00:00,00:18:85:43:D0:53,Online,Offline (but still visible),Himes - 52L - Pink 409 - 416,Himes Testing Hall
+2026-03-11T14:25:24+00:00,00:18:85:44:19:FD,Online,Offline (but still visible),Himes - 52L - Purple 739- 764,Himes Testing Hall
+2026-03-11T14:25:24+00:00,00:18:85:44:90:D2,Online,Offline (but still visible),Delta - Custodial Rm,Delta Hall
+2026-03-11T14:25:24+00:00,00:18:85:44:94:65,Online,Offline (but still visible),Union PG - Elev 1,Union Square Parking Garage
+2026-03-11T14:25:24+00:00,00:18:85:44:E2:94,Online,Offline (but still visible),HP Long - S Hall,Huey P Long Fieldhouse
+2026-03-11T14:25:24+00:00,00:18:85:45:A7:9E,Online,Offline (but still visible),NGA Garage - 4F East,Nicholson Gateway Garage
+2026-03-11T14:25:24+00:00,00:18:85:45:A8:DE,Online,Offline (but still visible),Beauregard - C3,Pentagon
+2026-03-11T14:25:24+00:00,00:18:85:46:95:C6,Online,Offline (but still visible),Taylor - B3,Pentagon Hall - Taylor
+2026-03-11T14:25:24+00:00,00:18:85:49:0B:90,Online,Offline (but still visible),Blake - W Entrance,Blake Hall
+2026-03-11T14:25:24+00:00,00:18:85:49:9C:2E,Online,Offline (but still visible),Union - Loading Dock N,Student Union
+2026-03-11T14:25:24+00:00,00:18:85:49:CF:3E,Online,Offline (but still visible),ECELP - Rm 1016,Child Care Center
+2026-03-11T14:25:24+00:00,00:18:85:49:D1:18,Online,Offline (but still visible),McVoy - Main Entrance,McVoy Hall
+2026-03-11T14:25:24+00:00,00:18:85:49:D1:E5,Online,Offline (but still visible),The 459 - Market,The 459 Commons
+2026-03-11T14:25:24+00:00,00:18:85:4A:A6:BE,Online,Offline (but still visible),Mike the Tiger - E Pole,Tiger Habitat
+2026-03-11T14:25:24+00:00,00:18:85:4B:04:4F,Online,Offline (but still visible),Annie Boyd - 1F Lobby,Unknown
+2026-03-11T14:25:24+00:00,00:18:85:4B:4A:21,Online,Offline (but still visible),Studio Arts - Central Stair East,Studio Arts
+2026-03-11T14:25:24+00:00,00:18:85:4D:B0:0E,Online,Offline (but still visible),SHC - W Chimes @ Infirmary Ln,Student Health Center
+2026-03-11T14:25:24+00:00,00:18:85:4E:B1:8A,Online,Offline (but still visible),UREC - Outdoor MAC Gym,UREC
+2026-03-11T14:25:24+00:00,00:18:85:4E:B1:93,Online,Offline (but still visible),PSAF - Sally Port,Public Safety Building
+2026-03-11T14:25:24+00:00,00:18:85:4E:B6:44,Online,Offline (but still visible),CHAMB - NE Corner,Chemicals and Materials Building
+2026-03-11T14:25:24+00:00,00:18:85:50:9E:28,Online,Offline (but still visible),Dairy Processing - 1F Hallway W,Food Science Building
+2026-03-11T14:25:24+00:00,00:18:85:51:23:88,Online,Offline (but still visible),Miller - 5F Elev Lobby,Miller Hall
+2026-03-11T14:25:24+00:00,00:18:85:53:D4:61,Online,Offline (but still visible),Frey - SE Breezeway,Frey Computing Services
+2026-03-11T14:25:24+00:00,00:18:85:54:D8:58,Online,Offline (but still visible),PFT - Rm 3133,Patrick F Taylor
+2026-03-11T14:25:24+00:00,00:18:85:55:33:CD,Online,Offline (but still visible),Union - 1F Kitchen,Student Union
+2026-03-11T14:25:24+00:00,00:18:85:55:B4:93,Online,Offline (but still visible),Hill Mem - B15 Entrance,Hill Memorial Library
+2026-03-11T14:25:24+00:00,00:18:85:55:B9:B6,Online,Offline (but still visible),Cypress - Middle Elevator,Cypress Hall
+2026-03-11T14:25:24+00:00,00:18:85:56:AB:C1,Online,Offline (but still visible),SVM Steph - 1F W Hall,School of Veterinary Medicine
+2026-03-11T14:25:24+00:00,00:18:85:57:64:4C,Online,Offline (but still visible),FB Ops - 2F Recovery Elev Lobby,FB Ops
+2026-03-11T14:25:24+00:00,00:18:85:57:E6:AC,Online,Offline (but still visible),University House - Back Yard,University House
+2026-03-11T14:25:24+00:00,00:18:85:58:B6:FE,Online,Offline (but still visible),Oxbow - NW Corner,Oxbow Hall
+2026-03-11T14:25:24+00:00,00:18:85:5B:1B:96,Online,Offline (but still visible),HP Long - NW Corner,Huey P Long Fieldhouse
+2026-03-11T14:25:24+00:00,00:18:85:5B:52:85,Online,Offline (but still visible),U-High - Central Courtyard,U-High School
+2026-03-11T14:25:24+00:00,00:18:85:5B:EF:2F,Online,Offline (but still visible),McVoy - 1F Vending Machine,McVoy Hall
+2026-03-11T14:25:24+00:00,00:18:85:5C:ED:CC,Online,Offline (but still visible),UAB - Rear Halls,University Administration Buikling
+2026-03-11T14:25:24+00:00,00:18:85:5D:B5:A7,Online,Offline (but still visible),Gulf - SW Corner,Gulf Hall
+2026-03-11T14:25:24+00:00,00:18:85:5D:C6:F9,Online,Offline (but still visible),Cedar - NW Corner,Cedar Hall
+2026-03-11T14:25:24+00:00,00:18:85:5D:C7:1A,Online,Offline (but still visible),Tgr Prk - SE Corner,Tiger Park
+2026-03-11T14:25:24+00:00,00:18:85:5D:EC:8D,Online,Offline (but still visible),The 5 Dining - Papa John's,The 5 Dining Hall
+2026-03-11T14:25:24+00:00,00:18:85:5D:F1:C7,Online,Offline (but still visible),Tgr St - East - Ste 210,Tiger Stadium
+2026-03-11T14:25:24+00:00,00:18:85:5D:F7:27,Online,Offline (but still visible),SVM Steph - 1F NE Hall,School of Veterinary Medicine
+2026-03-11T14:25:24+00:00,00:18:85:5D:F7:29,Online,Offline (but still visible),School of Music - NE Entrance,School of Music
+2026-03-11T14:25:24+00:00,00:18:85:5E:1B:A9,Online,Offline (but still visible),Union - S Face,Student Union
+2026-03-11T14:25:24+00:00,00:18:85:5E:7C:C6,Online,Offline (but still visible),Union - 2F RC Balcony Entry,Student Union
+2026-03-11T14:25:24+00:00,00:18:85:5E:F3:90,Online,Offline (but still visible),Bayou - 2F Elev Lobby,Bayou Hall
+2026-03-11T14:25:24+00:00,00:18:85:5F:31:1D,Online,Offline (but still visible),Grace King - 1F Hallway,Grace King Hall
+2026-03-11T14:25:24+00:00,00:18:85:61:A2:30,Online,Offline (but still visible),Res Life Warehouse - Carpenter Shop,Res Life Warehouse
+2026-03-11T14:25:24+00:00,00:18:85:62:2E:8F,Online,Offline (but still visible),Res Life Warehouse - Rm 115A,Res Life Warehouse
+2026-03-11T14:25:24+00:00,00:18:85:64:83:E9,Online,Offline (but still visible),PMAC - N Lobby,PMAC
+2026-03-11T14:25:24+00:00,00:1F:92:04:1B:D7,Online,Offline (but still visible),Miller - SE Roof PTZ,Miller Hall
+2026-03-11T14:25:24+00:00,00:1F:92:04:98:6C,Online,Offline (but still visible),UREC FC - SW PTZ,UREC Field Complex
+2026-03-11T14:25:24+00:00,00:1F:92:04:9E:48,Online,Offline (but still visible),COGEN - N PTZ,COGEN
+2026-03-11T14:25:24+00:00,00:40:8C:A3:03:41,Online,Offline (but still visible),Innovation Park - N Hallway,None
+2026-03-11T14:25:24+00:00,00:40:8C:A3:03:4D,Online,Offline (but still visible),Cox - Rm 103 West,None
+2026-03-11T14:25:24+00:00,00:40:8C:B1:77:F2,Online,Offline (but still visible),W Laville - 1F Elev Lobby,None
+2026-03-11T14:25:24+00:00,00:40:8C:BF:9B:4A,Online,Offline (but still visible),U-High - Elementary S Hallway,None
+2026-03-11T14:25:24+00:00,00:40:8C:BF:E6:2D,Online,Offline (but still visible),Frey - Help Desk,None
+2026-03-11T14:25:24+00:00,00:40:8C:C6:8A:06,Online,Offline (but still visible),Broussard - Rm 49,None
+2026-03-11T14:25:24+00:00,00:40:8C:CE:88:FD,Online,Offline (but still visible),CHAMB - 2F S Hallway W,None
+2026-03-11T14:25:24+00:00,00:40:8C:CE:89:17,Online,Offline (but still visible),UREC - 1F SW Entrance (yellow),None
+2026-03-11T14:25:24+00:00,00:40:8C:DA:B2:8F,Online,Offline (but still visible),E Laville - 3F Elev Lobby,E Laville Hall
+2026-03-11T14:25:24+00:00,00:40:8C:DB:53:63,Online,Offline (but still visible),Miller - 1F E Stairwell,Miller Hall
+2026-03-11T14:25:24+00:00,00:40:8C:DF:8D:E2,Online,Offline (but still visible),Union PG - 5F NE,Union Square Parking Garage
+2026-03-11T14:25:24+00:00,00:40:8C:DF:8D:EC,Online,Offline (but still visible),Union PG - 3F NW,Union Square Parking Garage
+2026-03-11T14:25:24+00:00,00:40:8C:DF:8D:FC,Online,Offline (but still visible),Union PG - South Face East,Union Square Parking Garage
+2026-03-11T14:25:24+00:00,00:40:8C:DF:AC:32,Online,Offline (but still visible),AAB - W Stair,Athletic Admin Building
+2026-03-11T14:25:24+00:00,00:40:8C:E6:58:7D,Online,Offline (but still visible),Libr - Stairwell NW,None
+2026-03-11T14:25:24+00:00,00:40:8C:EF:1B:4C,Online,Offline (but still visible),AFSB - 1F E Hallway South,Animal Food Science Building
+2026-03-11T14:25:24+00:00,00:40:8C:EF:7A:C4,Online,Offline (but still visible),FB Ops - East Entrance,FB Ops
+2026-03-11T14:25:24+00:00,00:40:8C:EF:8C:9C,Online,Offline (but still visible),Annie Boyd - BF Lounge,None
+2026-03-11T14:25:24+00:00,AC:CC:8E:02:E0:95,Online,Offline (but still visible),FB Ops - Weight Room Cam 3,FB Ops
+2026-03-11T14:25:24+00:00,AC:CC:8E:0A:A4:46,Online,Offline (but still visible),Tiger Stadium - South Stadium - Suite 171,None
+2026-03-11T14:25:24+00:00,AC:CC:8E:0B:96:D2,Online,Offline (but still visible),Tgr St - S Stadium - Suite  Stadium - Suite 260 E,Tgr St - S Stadium - Level 2
+2026-03-11T14:25:24+00:00,AC:CC:8E:16:22:8B,Online,Offline (but still visible),Charles Coates - Rm 169,Charles Coates Hall
+2026-03-11T14:25:24+00:00,AC:CC:8E:24:7D:58,Online,Offline (but still visible),SVM - MAZE 1,School of Veterinary Medicine
+2026-03-11T14:25:24+00:00,AC:CC:8E:33:44:63,Online,Offline (but still visible),SVM - SAC Entrance,School of Veterinary Medicine
+2026-03-11T14:25:24+00:00,AC:CC:8E:3B:09:B6,Online,Offline (but still visible),S Tower Entrance,None
+2026-03-11T14:25:24+00:00,AC:CC:8E:3B:44:05,Online,Offline (but still visible),ADP - W Side Gate,None
+2026-03-11T14:25:24+00:00,AC:CC:8E:3F:5D:1B,Online,Offline (but still visible),P&T - Greek Row South Lot E,P&T - Greek Row South Lot E
+2026-03-11T14:25:24+00:00,AC:CC:8E:3F:AD:EE,Online,Offline (but still visible),M,Music & Dramatic Arts Building
+2026-03-11T14:25:24+00:00,AC:CC:8E:42:75:1A,Online,Offline (but still visible),Cox - Rm 300 B,None
+2026-03-11T14:25:24+00:00,AC:CC:8E:49:79:AE,Online,Offline (but still visible),Cypress - W Courtyard,Cypress Hall
+2026-03-11T14:25:24+00:00,AC:CC:8E:50:72:A6,Online,Offline (but still visible),SVM - Pharmacy,School of Veterinary Medicine
+2026-03-11T14:25:24+00:00,AC:CC:8E:55:D4:A8,Online,Offline (but still visible),PFT - Hall 3324 North,Patrick F Taylor
+2026-03-11T14:25:24+00:00,AC:CC:8E:5E:E6:3D,Online,Offline (but still visible),Foundation - 2F Stair 1 Entry,None
+2026-03-11T14:25:24+00:00,AC:CC:8E:76:F0:A8,Online,Offline (but still visible),FB Ops - Weight Room Cam 1,FB Ops
+2026-03-11T14:25:24+00:00,AC:CC:8E:7C:F8:0B,Online,Offline (but still visible),PFT - E Ent South,None
+2026-03-11T14:25:24+00:00,AC:CC:8E:80:CD:2E,Online,Offline (but still visible),PMAC - TAF Unk,PMAC
+2026-03-11T14:25:24+00:00,AC:CC:8E:8F:5B:5E,Online,Offline (but still visible),Union Theater - Front Entrance,Student Union
+2026-03-11T14:25:24+00:00,AC:CC:8E:8F:6F:B3,Online,Offline (but still visible),U-High Tennis Court,U-High School
+2026-03-11T14:25:24+00:00,AC:CC:8E:8F:76:DB,Online,Offline (but still visible),UREC - Mezz B,UREC
+2026-03-11T14:25:24+00:00,AC:CC:8E:8F:95:11,Online,Offline (but still visible),UREC - Indoor Pool Locker Ent,UREC
+2026-03-11T14:25:24+00:00,AC:CC:8E:8F:C0:64,Online,Offline (but still visible),UREC - Locker Room Lobby,UREC
+2026-03-11T14:25:24+00:00,AC:CC:8E:8F:CC:21,Online,Offline (but still visible),UREC - 2F Social Stair,UREC
+2026-03-11T14:25:24+00:00,AC:CC:8E:8F:FA:C1,Online,Offline (but still visible),Bayou - Front Desk Lobby,None
+2026-03-11T14:26:17+00:00,00:18:85:25:63:92,Offline (but still visible),Online,Tgr St - Gate 11,Tiger Stadium
+2026-03-11T14:26:17+00:00,00:18:85:43:66:80,Offline (but still visible),Online,Himes - Check-In Line,Himes Testing Center
+2026-03-11T14:26:17+00:00,00:18:85:43:D0:53,Offline (but still visible),Online,Himes - 52L - Pink 409 - 416,Himes Testing Hall
+2026-03-11T14:26:17+00:00,00:18:85:44:19:FD,Offline (but still visible),Online,Himes - 52L - Purple 739- 764,Himes Testing Hall
+2026-03-11T14:26:17+00:00,00:18:85:44:90:D2,Offline (but still visible),Online,Delta - Custodial Rm,Delta Hall
+2026-03-11T14:26:17+00:00,00:18:85:44:94:65,Offline (but still visible),Online,Union PG - Elev 1,Union Square Parking Garage
+2026-03-11T14:26:17+00:00,00:18:85:44:E2:94,Offline (but still visible),Online,HP Long - S Hall,Huey P Long Fieldhouse
+2026-03-11T14:26:17+00:00,00:18:85:45:A7:9E,Offline (but still visible),Online,NGA Garage - 4F East,Nicholson Gateway Garage
+2026-03-11T14:26:17+00:00,00:18:85:45:A8:DE,Offline (but still visible),Online,Beauregard - C3,Pentagon
+2026-03-11T14:26:17+00:00,00:18:85:46:95:C6,Offline (but still visible),Online,Taylor - B3,Pentagon Hall - Taylor
+2026-03-11T14:26:17+00:00,00:18:85:49:0B:90,Offline (but still visible),Online,Blake - W Entrance,Blake Hall
+2026-03-11T14:26:17+00:00,00:18:85:49:9C:2E,Offline (but still visible),Online,Union - Loading Dock N,Student Union
+2026-03-11T14:26:17+00:00,00:18:85:49:CF:3E,Offline (but still visible),Online,ECELP - Rm 1016,Child Care Center
+2026-03-11T14:26:17+00:00,00:18:85:49:D1:18,Offline (but still visible),Online,McVoy - Main Entrance,McVoy Hall
+2026-03-11T14:26:17+00:00,00:18:85:49:D1:E5,Offline (but still visible),Online,The 459 - Market,The 459 Commons
+2026-03-11T14:26:17+00:00,00:18:85:4A:A6:BE,Offline (but still visible),Online,Mike the Tiger - E Pole,Tiger Habitat
+2026-03-11T14:26:17+00:00,00:18:85:4B:04:4F,Offline (but still visible),Online,Annie Boyd - 1F Lobby,Unknown
+2026-03-11T14:26:17+00:00,00:18:85:4B:4A:21,Offline (but still visible),Online,Studio Arts - Central Stair East,Studio Arts
+2026-03-11T14:26:17+00:00,00:18:85:4D:B0:0E,Offline (but still visible),Online,SHC - W Chimes @ Infirmary Ln,Student Health Center
+2026-03-11T14:26:17+00:00,00:18:85:4E:B1:8A,Offline (but still visible),Online,UREC - Outdoor MAC Gym,UREC
+2026-03-11T14:26:17+00:00,00:18:85:4E:B1:93,Offline (but still visible),Online,PSAF - Sally Port,Public Safety Building
+2026-03-11T14:26:17+00:00,00:18:85:4E:B6:44,Offline (but still visible),Online,CHAMB - NE Corner,Chemicals and Materials Building
+2026-03-11T14:26:17+00:00,00:18:85:50:9E:28,Offline (but still visible),Online,Dairy Processing - 1F Hallway W,Food Science Building
+2026-03-11T14:26:17+00:00,00:18:85:51:23:88,Offline (but still visible),Online,Miller - 5F Elev Lobby,Miller Hall
+2026-03-11T14:26:17+00:00,00:18:85:53:D4:61,Offline (but still visible),Online,Frey - SE Breezeway,Frey Computing Services
+2026-03-11T14:26:17+00:00,00:18:85:54:D8:58,Offline (but still visible),Online,PFT - Rm 3133,Patrick F Taylor
+2026-03-11T14:26:17+00:00,00:18:85:55:33:CD,Offline (but still visible),Online,Union - 1F Kitchen,Student Union
+2026-03-11T14:26:17+00:00,00:18:85:55:B4:93,Offline (but still visible),Online,Hill Mem - B15 Entrance,Hill Memorial Library
+2026-03-11T14:26:17+00:00,00:18:85:55:B9:B6,Offline (but still visible),Online,Cypress - Middle Elevator,Cypress Hall
+2026-03-11T14:26:17+00:00,00:18:85:56:AB:C1,Offline (but still visible),Online,SVM Steph - 1F W Hall,School of Veterinary Medicine
+2026-03-11T14:26:17+00:00,00:18:85:57:64:4C,Offline (but still visible),Online,FB Ops - 2F Recovery Elev Lobby,FB Ops
+2026-03-11T14:26:17+00:00,00:18:85:57:E6:AC,Offline (but still visible),Online,University House - Back Yard,University House
+2026-03-11T14:26:17+00:00,00:18:85:58:B6:FE,Offline (but still visible),Online,Oxbow - NW Corner,Oxbow Hall
+2026-03-11T14:26:17+00:00,00:18:85:5B:1B:96,Offline (but still visible),Online,HP Long - NW Corner,Huey P Long Fieldhouse
+2026-03-11T14:26:17+00:00,00:18:85:5B:52:85,Offline (but still visible),Online,U-High - Central Courtyard,U-High School
+2026-03-11T14:26:17+00:00,00:18:85:5B:EF:2F,Offline (but still visible),Online,McVoy - 1F Vending Machine,McVoy Hall
+2026-03-11T14:26:17+00:00,00:18:85:5C:ED:CC,Offline (but still visible),Online,UAB - Rear Halls,University Administration Buikling
+2026-03-11T14:26:17+00:00,00:18:85:5D:B5:A7,Offline (but still visible),Online,Gulf - SW Corner,Gulf Hall
+2026-03-11T14:26:17+00:00,00:18:85:5D:C6:D9,Offline (but still visible),Online,Highland Hall - NE Face,Highland Hall
+2026-03-11T14:26:17+00:00,00:18:85:5D:C6:F9,Offline (but still visible),Online,Cedar - NW Corner,Cedar Hall
+2026-03-11T14:26:17+00:00,00:18:85:5D:C7:1A,Offline (but still visible),Online,Tgr Prk - SE Corner,Tiger Park
+2026-03-11T14:26:17+00:00,00:18:85:5D:EC:8D,Offline (but still visible),Online,The 5 Dining - Papa John's,The 5 Dining Hall
+2026-03-11T14:26:17+00:00,00:18:85:5D:F1:C7,Offline (but still visible),Online,Tgr St - East - Ste 210,Tiger Stadium
+2026-03-11T14:26:17+00:00,00:18:85:5D:F7:27,Offline (but still visible),Online,SVM Steph - 1F NE Hall,School of Veterinary Medicine
+2026-03-11T14:26:17+00:00,00:18:85:5D:F7:29,Offline (but still visible),Online,School of Music - NE Entrance,School of Music
+2026-03-11T14:26:17+00:00,00:18:85:5E:1B:A9,Offline (but still visible),Online,Union - S Face,Student Union
+2026-03-11T14:26:17+00:00,00:18:85:5E:7C:C6,Offline (but still visible),Online,Union - 2F RC Balcony Entry,Student Union
+2026-03-11T14:26:17+00:00,00:18:85:5E:F3:90,Offline (but still visible),Online,Bayou - 2F Elev Lobby,Bayou Hall
+2026-03-11T14:26:17+00:00,00:18:85:5F:31:1D,Offline (but still visible),Online,Grace King - 1F Hallway,Grace King Hall
+2026-03-11T14:26:17+00:00,00:18:85:61:A2:30,Offline (but still visible),Online,Res Life Warehouse - Carpenter Shop,Res Life Warehouse
+2026-03-11T14:26:17+00:00,00:18:85:62:2E:8F,Offline (but still visible),Online,Res Life Warehouse - Rm 115A,Res Life Warehouse
+2026-03-11T14:26:17+00:00,00:18:85:64:83:E9,Offline (but still visible),Online,PMAC - N Lobby,PMAC
+2026-03-11T14:26:17+00:00,00:1F:92:04:1B:D7,Offline (but still visible),Online,Miller - SE Roof PTZ,Miller Hall
+2026-03-11T14:26:17+00:00,00:1F:92:04:98:6C,Offline (but still visible),Online,UREC FC - SW PTZ,UREC Field Complex
+2026-03-11T14:26:17+00:00,00:1F:92:04:9E:48,Offline (but still visible),Online,COGEN - N PTZ,COGEN
+2026-03-11T14:26:17+00:00,00:40:8C:A3:03:41,Offline (but still visible),Online,Innovation Park - N Hallway,Innovation Park
+2026-03-11T14:26:17+00:00,00:40:8C:A3:03:4D,Offline (but still visible),Online,Cox - Rm 103 West,Cox Communications Academic Center
+2026-03-11T14:26:17+00:00,00:40:8C:B1:77:F2,Offline (but still visible),Online,W Laville - 1F Elev Lobby,W Laville Hall
+2026-03-11T14:26:17+00:00,00:40:8C:BF:9B:4A,Offline (but still visible),Online,U-High - Elementary S Hallway,U-High School
+2026-03-11T14:26:17+00:00,00:40:8C:BF:E6:2D,Offline (but still visible),Online,Frey - Help Desk,Frey Computing Services
+2026-03-11T14:26:17+00:00,00:40:8C:C6:8A:06,Offline (but still visible),Online,Broussard - Rm 49,Broussard Hall
+2026-03-11T14:26:17+00:00,00:40:8C:CE:88:FD,Offline (but still visible),Online,CHAMB - 2F S Hallway W,Chemicals and Materials Building
+2026-03-11T14:26:17+00:00,00:40:8C:CE:89:17,Offline (but still visible),Online,UREC - 1F SW Entrance (yellow),UREC
+2026-03-11T14:26:17+00:00,00:40:8C:DA:B2:8F,Offline (but still visible),Online,E Laville - 3F Elev Lobby,E Laville Hall
+2026-03-11T14:26:17+00:00,00:40:8C:DB:53:63,Offline (but still visible),Online,Miller - 1F E Stairwell,Miller Hall
+2026-03-11T14:26:17+00:00,00:40:8C:DF:8D:E2,Offline (but still visible),Online,Union PG - 5F NE,Union Square Parking Garage
+2026-03-11T14:26:17+00:00,00:40:8C:DF:8D:EC,Offline (but still visible),Online,Union PG - 3F NW,Union Square Parking Garage
+2026-03-11T14:26:17+00:00,00:40:8C:DF:8D:FC,Offline (but still visible),Online,Union PG - South Face East,Union Square Parking Garage
+2026-03-11T14:26:17+00:00,00:40:8C:DF:AC:32,Offline (but still visible),Online,AAB - W Stair,Athletic Admin Building
+2026-03-11T14:26:17+00:00,00:40:8C:E6:58:7D,Offline (but still visible),Online,Libr - Stairwell NW,None
+2026-03-11T14:26:17+00:00,00:40:8C:EF:1B:4C,Offline (but still visible),Online,AFSB - 1F E Hallway South,Animal Food Science Building
+2026-03-11T14:26:17+00:00,00:40:8C:EF:7A:C4,Offline (but still visible),Online,FB Ops - East Entrance,FB Ops
+2026-03-11T14:26:17+00:00,00:40:8C:EF:8C:9C,Offline (but still visible),Online,Annie Boyd - BF Lounge,Annie Boyd Hall
+2026-03-11T14:26:17+00:00,AC:CC:8E:02:E0:95,Offline (but still visible),Online,FB Ops - Weight Room Cam 3,FB Ops
+2026-03-11T14:26:17+00:00,AC:CC:8E:0A:A4:46,Offline (but still visible),Online,Tiger Stadium - South Stadium - Suite 171,None
+2026-03-11T14:26:17+00:00,AC:CC:8E:0B:96:D2,Offline (but still visible),Online,Tgr St - S Stadium - Suite  Stadium - Suite 260 E,Tgr St - S Stadium - Level 2
+2026-03-11T14:26:17+00:00,AC:CC:8E:16:22:8B,Offline (but still visible),Online,Charles Coates - Rm 169,Charles Coates Hall
+2026-03-11T14:26:17+00:00,AC:CC:8E:24:7D:58,Offline (but still visible),Online,SVM - MAZE 1,School of Veterinary Medicine
+2026-03-11T14:26:17+00:00,AC:CC:8E:33:44:63,Offline (but still visible),Online,SVM - SAC Entrance,School of Veterinary Medicine
+2026-03-11T14:26:17+00:00,AC:CC:8E:3B:09:B6,Offline (but still visible),Online,Cypress - S Tower Entrance,Cypress Hall
+2026-03-11T14:26:17+00:00,AC:CC:8E:3B:44:05,Offline (but still visible),Online,ADP - W Side Gate,None
+2026-03-11T14:26:17+00:00,AC:CC:8E:3F:5D:1B,Offline (but still visible),Online,P&T - Greek Row South Lot E,Minnie Fisk @ Dorothy Dix
+2026-03-11T14:26:17+00:00,AC:CC:8E:3F:AD:EE,Offline (but still visible),Online,M,Music & Dramatic Arts Building
+2026-03-11T14:26:17+00:00,AC:CC:8E:42:75:1A,Offline (but still visible),Online,Cox - Rm 300 B,Cox Communications Academic Center
+2026-03-11T14:26:17+00:00,AC:CC:8E:49:79:AE,Offline (but still visible),Online,Cypress - W Courtyard,Cypress Hall
+2026-03-11T14:26:17+00:00,AC:CC:8E:50:72:A6,Offline (but still visible),Online,SVM - Pharmacy,School of Veterinary Medicine
+2026-03-11T14:26:17+00:00,AC:CC:8E:55:D4:A8,Offline (but still visible),Online,PFT - Hall 3324 North,Patrick F Taylor
+2026-03-11T14:26:17+00:00,AC:CC:8E:5E:E6:3D,Offline (but still visible),Online,Foundation - 2F Stair 1 Entry,None
+2026-03-11T14:26:17+00:00,AC:CC:8E:76:F0:A8,Offline (but still visible),Online,FB Ops - Weight Room Cam 1,FB Ops
+2026-03-11T14:26:17+00:00,AC:CC:8E:7C:F8:0B,Offline (but still visible),Online,PFT - E Ent South,Patrick F Taylor
+2026-03-11T14:26:17+00:00,AC:CC:8E:80:CD:2E,Offline (but still visible),Online,PMAC - TAF Unk,PMAC
+2026-03-11T14:26:17+00:00,AC:CC:8E:8F:5B:5E,Offline (but still visible),Online,Union Theater - Front Entrance,Student Union
+2026-03-11T14:26:17+00:00,AC:CC:8E:8F:6F:B3,Offline (but still visible),Online,U-High Tennis Court,U-High School
+2026-03-11T14:26:17+00:00,AC:CC:8E:8F:76:DB,Offline (but still visible),Online,UREC - Mezz B,UREC
+2026-03-11T14:26:17+00:00,AC:CC:8E:8F:95:11,Offline (but still visible),Online,UREC - Indoor Pool Locker Ent,UREC
+2026-03-11T14:26:17+00:00,AC:CC:8E:8F:C0:64,Offline (but still visible),Online,UREC - Locker Room Lobby,UREC
+2026-03-11T14:26:17+00:00,AC:CC:8E:8F:CC:21,Offline (but still visible),Online,UREC - 2F Social Stair,UREC
+2026-03-11T14:26:17+00:00,AC:CC:8E:8F:FA:C1,Offline (but still visible),Online,Bayou - Front Desk Lobby,None
+2026-03-11T14:26:17+00:00,AC:CC:8E:A1:3C:51,Offline (but still visible),Online,Law - 1F Rm,Hebert Law School
+2026-03-11T14:27:42+00:00,00:18:85:66:53:CB,Offline (but still visible),Online,HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-11T15:00:39+00:00,00:18:85:4D:B0:F2,Online,Offline (but still visible),SHC - SW Corner,Student Health Center
+2026-03-11T15:00:39+00:00,00:18:85:66:53:CB,Online,Offline (but still visible),HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-11T15:11:23+00:00,00:18:85:4D:B0:F2,Offline (but still visible),Online,SHC - SW Corner,Student Health Center
+2026-03-11T15:11:23+00:00,00:18:85:66:53:CB,Offline (but still visible),Online,HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-11T16:33:39+00:00,00:18:85:4E:BD:EB,Offline (but still visible),Online,Libr - Rear Entry/Exit,Main Library
+2026-03-11T16:33:39+00:00,00:18:85:66:53:CB,Online,Offline (but still visible),HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-11T16:33:39+00:00,AC:CC:8E:68:3F:C1,Offline (but still visible),Online,PFT - SW Exterior,Patrick F Taylor Hall
+2026-03-11T16:33:39+00:00,AC:CC:8E:C0:B9:08,Offline (but still visible),Online,BEC - NW Corner,Business Education Complex
+2026-03-11T16:33:39+00:00,AC:CC:8E:CD:F5:52,Offline (but still visible),Online,Cedar - 2F Elev Lobby S,Cedar Hall
+2026-03-11T16:59:14+00:00,00:18:85:64:83:E9,Online,Offline (but still visible),PMAC - N Lobby,PMAC
+2026-03-11T16:59:14+00:00,00:18:85:66:53:CB,Offline (but still visible),Online,HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-11T16:59:14+00:00,AC:CC:8E:A4:3E:19,Offline (but still visible),Online,Oxbow - 3F Elev Lobby,None
+2026-03-11T16:59:14+00:00,AC:CC:8E:D5:40:9F,Offline (but still visible),Online,AXIS P3717-PLE,None
+2026-03-11T16:59:14+00:00,B8:A4:4F:3C:76:D3,Online,Offline (but still visible),Camellia - 2F Elev 1 Lobby,Camellia Hall
+2026-03-11T18:03:11+00:00,00:18:85:64:83:E9,Offline (but still visible),Online,PMAC - N Lobby,PMAC
+2026-03-11T18:03:11+00:00,00:18:85:66:53:CB,Online,Offline (but still visible),HP Long - S Entrance,Huey P Long Fieldhouse
+2026-03-12T12:52:11+00:00,00:18:85:49:0D:D4,Online,Offline (but still visible),Louis Garig - N Stair,Louis Garig Hall
+2026-03-12T12:52:11+00:00,00:18:85:53:69:7A,Online,Offline (but still visible),U-Club Golf - S Entrance,University Club Golf
+2026-03-12T12:52:11+00:00,00:18:85:54:3D:84,Online,Offline (but still visible),U-Club Golf - Interior,University Club Golf
+2026-03-12T12:52:11+00:00,00:18:85:54:6E:09,Online,Offline (but still visible),U-Club Golf - NW Corner,U-Club Golf
+2026-03-12T13:46:52+00:00,00:18:85:44:94:47,Online,Offline (but still visible),PFT - Elev 2,Patrick F Taylor Hall
+2026-03-12T13:46:52+00:00,00:18:85:45:A9:FF,Online,Offline (but still visible),Levee Cam,Levee @ Skip Bertman
+2026-03-12T14:31:58+00:00,00:18:85:44:94:47,Offline (but still visible),Online,PFT - Elev 2,Patrick F Taylor Hall
+2026-03-12T14:31:58+00:00,00:18:85:45:A9:FF,Offline (but still visible),Online,Levee Cam,Levee @ Skip Bertman
+2026-03-12T14:35:16+00:00,00:18:85:49:0D:D4,Offline (but still visible),Online,Louis Garig - N Stair,Louis Garig Hall
+2026-03-12T14:35:16+00:00,00:40:8C:DF:37:CE,Online,Offline (but still visible),AXIS-M3114,Union Square Parking Garage
+2026-03-13T15:22:24+00:00,00:18:85:45:90:2E,Online,Offline (but still visible),AFSB - S Wall,Animal Food Science Building
+2026-03-13T15:22:24+00:00,00:18:85:51:61:B3,Offline (but still visible),Online,Miller - 4F East Hallway,Miller Hall
+2026-03-13T15:22:24+00:00,00:40:8C:DF:37:CE,Offline (but still visible),Online,AXIS-M3114,Union Square Parking Garage
+2026-03-20T15:26:50+00:00,00:03:C5:04:A4:5C,Online,Offline (but still visible),MOBOTIX-D12D-IT,None
+2026-03-20T15:26:50+00:00,00:18:85:44:94:8D,Offline (but still visible),Online,Union - Service Elevator,Student Union
+2026-03-20T15:26:50+00:00,00:18:85:53:69:7A,Offline (but still visible),Online,U-Club Golf - S Entrance,University Club Golf
+2026-03-20T15:26:50+00:00,00:18:85:54:3D:84,Offline (but still visible),Online,U-Club Golf - Interior,University Club Golf
+2026-03-20T15:26:50+00:00,00:18:85:54:6E:09,Offline (but still visible),Online,U-Club Golf - NW Corner,U-Club Golf
+2026-03-20T15:26:50+00:00,00:18:85:62:2E:8F,Online,Offline (but still visible),Res Life Warehouse - Rm 115A,Res Life Warehouse
+2026-03-20T15:26:50+00:00,AC:CC:8E:A1:B4:30,Offline (but still visible),Online,Canal - Bus Stop,None
+2026-03-20T15:26:50+00:00,AC:CC:8E:CC:5F:78,Online,Offline (but still visible),Evangeline - NE Lobby Front Desk,Evangeline Hall
+2026-03-20T15:26:50+00:00,AC:CC:8E:D5:3F:31,Online,Offline (but still visible),FB Ops 2F - W Seating,FB Ops
+2026-03-20T15:26:50+00:00,AC:CC:8E:D5:3F:B2,Online,Offline (but still visible),FB Ops - 1st Team SEC,FB Ops
+2026-03-20T15:26:50+00:00,AC:CC:8E:D5:A5:59,Online,Offline (but still visible),Cedar - 2F Elev Lobby N,Cedar Hall
+2026-03-20T15:26:50+00:00,AC:CC:8E:D6:22:AA,Online,Offline (but still visible),Tgr Prk - Practice Diamond,Tiger Park
+2026-03-20T15:26:50+00:00,B8:A4:4F:3C:72:A9,Online,Offline (but still visible),Camellia - 5F Elev 1 Lobby,Camellia Hall
+2026-03-20T15:26:50+00:00,B8:A4:4F:3C:75:2C,Online,Offline (but still visible),Azalea - 1F Elev 2 Lobby,Azalea Hall
+2026-03-20T15:26:50+00:00,B8:A4:4F:3C:76:D3,Offline (but still visible),Online,Camellia - 2F Elev 1 Lobby,Camellia Hall
+2026-03-20T15:26:50+00:00,B8:A4:4F:3C:76:FC,Online,Offline (but still visible),Azalea Hall - 3F Lounge,None
+2026-03-20T15:26:50+00:00,B8:A4:4F:40:F8:B9,Online,Offline (but still visible),Camellia - SW Corner,Camellia Hall
+2026-03-26T01:50:28+00:00,00:18:85:46:55:ED,Offline (but still visible),Online,HP Long - Atrium,Huey P Long Fieldhouse
+2026-03-26T01:50:28+00:00,AC:CC:8E:A1:B4:63,Online,Offline (but still visible),NGA Garage - 2F SE Ramp,Nicholson Gateway Garage
+2026-03-26T01:50:28+00:00,AC:CC:8E:A4:3D:97,Online,Offline (but still visible),Riverbend - 5F Elev Lobby,None
+2026-03-26T01:50:28+00:00,AC:CC:8E:D5:3F:31,Offline (but still visible),Online,FB Ops 2F - W Seating,FB Ops
+2026-03-26T01:50:28+00:00,AC:CC:8E:D5:3F:B2,Offline (but still visible),Online,FB Ops - 1st Team SEC,FB Ops
+2026-03-26T01:50:28+00:00,AC:CC:8E:D5:A5:59,Offline (but still visible),Online,Cedar - 2F Elev Lobby N,Cedar Hall
+2026-03-26T01:50:28+00:00,B8:A4:4F:3C:75:2C,Offline (but still visible),Online,Azalea - 1F Elev 2 Lobby,Azalea Hall
+2026-03-26T01:50:28+00:00,B8:A4:4F:3C:76:FC,Offline (but still visible),Online,Azalea Hall - 3F Lounge,None
