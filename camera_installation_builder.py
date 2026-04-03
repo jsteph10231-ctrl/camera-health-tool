@@ -709,9 +709,24 @@ def _format_export_text(camera_summary: dict[str, str], bom_df: pd.DataFrame, no
 
 
 def reset_builder_state() -> None:
+    widget_defaults = {
+        "cib_workbook_path": _default_workbook_path(),
+        "cib_family": "",
+        "cib_model": "",
+        "cib_scenario": "",
+        "cib_mount_type": "",
+        "cib_environment": "",
+        "cib_tags": [],
+        "cib_quantity": 1,
+        "cib_required_only": False,
+        "cib_debug_mode": False,
+    }
     for state_key in STATE_KEYS:
         st.session_state.pop(state_key, None)
-    st.session_state["cib_workbook_path"] = _default_workbook_path()
+    for state_key, default_value in widget_defaults.items():
+        st.session_state[state_key] = default_value
+    st.session_state.pop("cib_workbook_upload", None)
+    st.session_state.pop("cib_reset_pending", None)
 
 
 def _sync_single_select_state(key: str, options: list[str]) -> str:
@@ -735,6 +750,9 @@ def _sync_multi_select_state(key: str, options: list[str]) -> list[str]:
 def render_builder() -> None:
     st.subheader("Camera Installation Builder")
     st.caption("Workbook-driven Avigilon installation package builder. Swap the workbook later by changing the path or uploading a newer .xlsx file.")
+
+    if st.session_state.get("cib_reset_pending"):
+        reset_builder_state()
 
     st.session_state.setdefault("cib_workbook_path", _default_workbook_path())
     st.session_state.setdefault("cib_quantity", 1)
@@ -875,7 +893,7 @@ def render_builder() -> None:
                             }
                 with clear_col:
                     if st.button("Clear", key="cib_clear", use_container_width=True):
-                        reset_builder_state()
+                        st.session_state["cib_reset_pending"] = True
                         st.rerun()
 
                 st.caption(
