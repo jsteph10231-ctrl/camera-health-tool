@@ -3,3 +3,4 @@ pandas==2.3.3
 pillow==12.1.1
 altair==6.0.0
 openai>=2.0.0
+streamlit-aggrid>=1.1.8

@@ -13,6 +13,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+This installs the Streamlit AgGrid dependency used by the app UI. On a fresh machine, make sure the required site-health CSV is present at the repo root as `LSU Public Safety Surveillance .csv` (next to `app.py`) before launch.
+
 3. Run the app:
 
 ```powershell

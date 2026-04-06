@@ -35,6 +35,7 @@ import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st  # type: ignore[import-untyped]
 
 import streamlit.components.v1 as components  # type: ignore[import-untyped]
+from ui_helpers import render_health_section_intro
 try:
     from st_aggrid import (  # type: ignore[import-untyped]
         AgGrid,
@@ -92,9 +93,10 @@ st.set_page_config(page_title="LSU Camera Health Tool", layout="wide", page_icon
 
 if "theme_dark_mode" not in st.session_state:
 
-    st.session_state.theme_dark_mode = True
+    st.session_state.theme_dark_mode = False
 
-theme_dark_mode = bool(st.session_state.theme_dark_mode)
+st.session_state.theme_dark_mode = False
+theme_dark_mode = False
 
 
 
@@ -120,28 +122,35 @@ for _theme_key, _theme_value in theme_config.items():
 
 # ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ LSU Purple & Gold Theme ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
 
+# Legacy LSU theme CSS retained for reference only. Current live styling is defined below.
 _LEGACY_THEME_CSS = """
 
 <style>
 
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Palette ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
-
-/* Purple : #461D7C  |  Gold : #FDD023  |  Dark purple bg : #2D1259 */
-
-
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ App background ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
+:root {
+    --app-bg: #f6f8f4;
+    --app-bg-soft: #eef4ec;
+    --surface-1: #ffffff;
+    --surface-2: #f1f6f1;
+    --surface-3: #e7efe8;
+    --border-soft: rgba(87, 119, 95, 0.14);
+    --border-strong: rgba(87, 119, 95, 0.24);
+    --text-main: #24362b;
+    --text-muted: #627467;
+    --text-soft: #56695c;
+    --accent: #4f7a5b;
+    --accent-soft: rgba(79, 122, 91, 0.14);
+    --success: #4f8f67;
+    --warning: #c2a15b;
+    --danger: #c96d6d;
+}
 
 [data-testid="stAppViewContainer"] {
-
-    background-color: #1a0a36;
-
+    background: radial-gradient(circle at top right, rgba(79, 122, 91, 0.05), transparent 24%), linear-gradient(180deg, #f6f8f4 0%, #f2f6f0 100%);
 }
 
 [data-testid="stMain"] {
-
-    background-color: #1a0a36;
-
+    background: transparent;
 }
 
 
@@ -149,63 +158,43 @@ _LEGACY_THEME_CSS = """
 /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Sidebar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
 [data-testid="stSidebar"] {
-
-    background: linear-gradient(180deg, #2D1259 0%, #461D7C 100%);
-
-    border-right: 3px solid #FDD023;
-
+    background: linear-gradient(180deg, #f3f7f1 0%, #eef4ec 100%);
+    border-right: 1px solid var(--border-soft);
 }
 
 [data-testid="stSidebar"] * {
-
-    color: #FDD023 !important;
-
+    color: var(--text-main) !important;
 }
 
 [data-testid="stSidebar"] input,
-
-[data-testid="stSidebar"] textarea {
-
-    background-color: #3a1a6e !important;
-
-    color: #FDD023 !important;
-
-    border: 1px solid #FDD023 !important;
-
-    border-radius: 6px !important;
-
+[data-testid="stSidebar"] textarea,
+[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background-color: var(--surface-2) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
 }
 
 [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
-
-    color: #FDD023 !important;
-
-    font-weight: 700 !important;
-
+    color: var(--text-main) !important;
+    font-weight: 600 !important;
 }
 
 [data-testid="stSidebar"] .stButton > button {
-
-    background-color: #FDD023 !important;
-
-    color: #461D7C !important;
-
-    font-weight: 700 !important;
-
-    border: none !important;
-
-    border-radius: 6px !important;
-
+    background: var(--surface-2) !important;
+    color: var(--text-main) !important;
+    font-weight: 600 !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 10px !important;
     width: 100% !important;
-
+    box-shadow: none !important;
 }
 
 [data-testid="stSidebar"] .stButton > button:hover {
-
-    background-color: #ffe566 !important;
-
-    color: #2D1259 !important;
-
+    background: var(--surface-3) !important;
+    border-color: var(--border-strong) !important;
+    color: #ffffff !important;
 }
 
 
@@ -213,11 +202,9 @@ _LEGACY_THEME_CSS = """
 /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Top header bar (page title area) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
 header[data-testid="stHeader"] {
-
-    background: #461D7C;
-
-    border-bottom: 3px solid #FDD023;
-
+    background: rgba(246, 248, 244, 0.94);
+    border-bottom: 1px solid var(--border-soft);
+    backdrop-filter: blur(12px);
 }
 
 
@@ -225,25 +212,18 @@ header[data-testid="stHeader"] {
 /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ All text ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
 html, body, [class*="css"] {
-
-    color: #f5f0ff;
-
+    color: var(--text-main);
 }
 
 h1, h2, h3 {
-
-    color: #FDD023 !important;
-
-    font-family: 'Georgia', serif;
-
-    letter-spacing: 0.5px;
-
+    color: #24362b !important;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: -0.02em;
+    font-weight: 700;
 }
 
 p, label, div, span {
-
-    color: #e8deff;
-
+    color: var(--text-soft);
 }
 
 
@@ -252,15 +232,15 @@ p, label, div, span {
 
 [data-testid="stTitle"] {
 
-    color: #FDD023 !important;
+    color: #24362b !important;
 
-    font-size: 2rem !important;
+    font-size: 1.55rem !important;
 
-    border-bottom: 2px solid #FDD023;
+    border-bottom: none !important;
 
-    padding-bottom: 0.4rem;
+    padding-bottom: 0 !important;
 
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.28rem !important;
 
 }
 
@@ -269,303 +249,129 @@ p, label, div, span {
 /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Metrics ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
 [data-testid="stMetric"] {
-
-    background: #2D1259;
-
-    border: 1px solid #FDD023;
-
-    border-radius: 10px;
-
-    padding: 8px 10px !important;
-
+    background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    padding: 0.85rem 0.95rem !important;
     min-width: 0;
-
     overflow: hidden;
-
+    box-shadow: none !important;
 }
 
 [data-testid="stMetricLabel"] > div {
-
-    color: #FDD023 !important;
-
+    color: var(--text-muted) !important;
     font-weight: 600;
-
-    font-size: 0.72rem;
-
+    font-size: 0.7rem;
     text-transform: uppercase;
-
-    letter-spacing: 0.5px;
-
+    letter-spacing: 0.08em;
     white-space: nowrap;
-
     overflow: hidden;
-
     text-overflow: ellipsis;
-
 }
 
 [data-testid="stMetricValue"] > div {
-
-    color: #ffffff !important;
-
-    font-size: clamp(1rem, 2vw, 1.6rem) !important;
-
+    color: #f8fbff !important;
+    font-size: clamp(1rem, 2vw, 1.45rem) !important;
     font-weight: 700;
-
     white-space: nowrap;
-
     overflow: hidden;
-
     text-overflow: ellipsis;
-
 }
-
-
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Keyframe Animations ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
-
-@keyframes btn-pulse {
-
-    0%   { box-shadow: 0 0 0 0 rgba(253,208,35,0.55); }
-
-    60%  { box-shadow: 0 0 0 7px rgba(253,208,35,0); }
-
-    100% { box-shadow: 0 0 0 0 rgba(253,208,35,0); }
-
-}
-
-@keyframes sidebar-shimmer {
-
-    0%   { background-position: -200% center; }
-
-    100% { background-position: 200% center; }
-
-}
-
-@keyframes input-glow-pulse {
-
-    0%, 100% { box-shadow: 0 0 0 2px rgba(253,208,35,0.15); }
-
-    50%       { box-shadow: 0 0 0 4px rgba(253,208,35,0.40); }
-
-}
-
-@keyframes tab-alert-blink {
-
-    0%, 100% { color: #ff6b6b !important; }
-
-    50%       { color: #ffb3b3 !important; }
-
-}
-
-@keyframes metric-lift {
-
-    0%   { transform: translateY(0px); }
-
-    50%  { transform: translateY(-2px); }
-
-    100% { transform: translateY(0px); }
-
-}
-
-
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Main buttons ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
 [data-testid="stMain"] .stButton > button {
-
-    background-color: #461D7C !important;
-
-    color: #FDD023 !important;
-
-    border: 2px solid #FDD023 !important;
-
-    border-radius: 8px !important;
-
-    font-weight: 700 !important;
-
-    transition: all 0.22s ease, box-shadow 0.22s ease, transform 0.18s ease !important;
-
+    background: var(--surface-2) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease !important;
+    box-shadow: none !important;
 }
 
 [data-testid="stMain"] .stButton > button:hover {
-
-    background-color: #FDD023 !important;
-
-    color: #461D7C !important;
-
-    border-color: #FDD023 !important;
-
-    transform: translateY(-2px) scale(1.02) !important;
-
-    box-shadow: 0 6px 20px rgba(253,208,35,0.35) !important;
-
+    background: var(--surface-3) !important;
+    color: #ffffff !important;
+    border-color: var(--border-strong) !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 [data-testid="stMain"] .stButton > button:hover * {
-
-    color: #461D7C !important;
-
+    color: #ffffff !important;
 }
-
-[data-testid="stMain"] .stButton > button:active {
-
-    transform: translateY(0px) scale(0.98) !important;
-
-    box-shadow: 0 2px 6px rgba(253,208,35,0.2) !important;
-
-}
-
-
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Text inputs ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
 [data-testid="stMain"] input[type="text"],
-
-[data-testid="stMain"] textarea {
-
-    background-color: #2D1259 !important;
-
-    color: #f5f0ff !important;
-
-    border: 1px solid #7a52b5 !important;
-
-    border-radius: 6px !important;
-
+[data-testid="stMain"] textarea,
+[data-testid="stMain"] [data-baseweb="select"] > div,
+[data-testid="stMain"] [data-baseweb="input"] > div {
+    background-color: var(--surface-2) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-soft) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
 }
 
 [data-testid="stMain"] input[type="text"]:focus,
-
 [data-testid="stMain"] textarea:focus {
-
-    border-color: #FDD023 !important;
-
-    box-shadow: 0 0 0 2px rgba(253,208,35,0.3) !important;
-
+    border-color: rgba(124, 140, 255, 0.45) !important;
+    box-shadow: 0 0 0 1px rgba(124, 140, 255, 0.25) !important;
 }
-
-
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Selectbox / Multiselect ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
-
-[data-testid="stSelectbox"] > div > div,
-
-[data-testid="stMultiSelect"] > div > div {
-
-    background-color: #2D1259 !important;
-
-    border: 1px solid #7a52b5 !important;
-
-    border-radius: 6px !important;
-
-    color: #f5f0ff !important;
-
-}
-
-/* Multiselect tags ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ gold bg needs purple text */
 
 [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
-
-    background-color: #FDD023 !important;
-
-    color: #461D7C !important;
-
-    font-weight: 700;
-
-    border-radius: 4px !important;
-
+    background-color: rgba(124, 140, 255, 0.14) !important;
+    color: #dbe4ff !important;
+    font-weight: 600;
+    border: 1px solid rgba(124, 140, 255, 0.2) !important;
+    border-radius: 999px !important;
 }
 
 [data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
-
-    color: #461D7C !important;
-
-    fill: #461D7C !important;
-
+    color: #dbe4ff !important;
+    fill: #dbe4ff !important;
 }
-
-/* Sidebar Load button (gold bg) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ text must be purple */
-
-[data-testid="stSidebar"] .stButton > button * {
-
-    color: #461D7C !important;
-
-}
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Checkbox ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
 [data-testid="stCheckbox"] label {
-
-    color: #f5f0ff !important;
-
+    color: var(--text-main) !important;
 }
 
-
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Dataframe / table ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
-
 [data-testid="stDataFrame"] > div {
-
-    border: 1px solid #461D7C;
-
-    border-radius: 8px;
-
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
     overflow: hidden;
-
+    background: var(--surface-1);
 }
 
 [data-testid="stDataFrame"] th {
-
-    background-color: #461D7C !important;
-
-    color: #FDD023 !important;
-
-    font-weight: 700;
-
+    background-color: #1b222b !important;
+    color: #dbe3ee !important;
+    font-weight: 600;
     text-transform: uppercase;
-
-    font-size: 0.78rem;
-
-    letter-spacing: 0.5px;
-
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border-soft) !important;
 }
 
 [data-testid="stDataFrame"] tr:nth-child(even) {
-
-    background-color: #2a1155 !important;
-
+    background-color: rgba(255,255,255,0.015) !important;
 }
 
 [data-testid="stDataFrame"] tr:hover {
-
-    background-color: #3d1a72 !important;
-
+    background-color: rgba(124, 140, 255, 0.08) !important;
 }
 
-
-
-/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Success / error / info / warning banners ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
-
 [data-testid="stAlert"] {
-
-    border-radius: 8px !important;
-
+    border-radius: 12px !important;
+    border: 1px solid var(--border-soft) !important;
 }
 
 div[data-testid="stAlert"][data-baseweb="notification"][kind="positive"] {
-
-    background-color: #1a3d1a !important;
-
-    border-left: 4px solid #4caf50 !important;
-
+    background-color: rgba(63, 179, 127, 0.12) !important;
+    border-left: 3px solid var(--success) !important;
 }
 
 div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
-
-    background-color: #3d0a0a !important;
-
-    border-left: 4px solid #e53935 !important;
-
+    background-color: rgba(212, 106, 106, 0.12) !important;
+    border-left: 3px solid var(--danger) !important;
 }
 
 
@@ -574,17 +380,17 @@ div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
 
 [data-testid="stExpander"] {
 
-    background-color: #2D1259 !important;
+    background-color: #f7faf7 !important;
 
-    border: 1px solid #461D7C !important;
+    border: 1px solid rgba(109, 145, 116, 0.16) !important;
 
-    border-radius: 8px !important;
+    border-radius: 10px !important;
 
 }
 
 [data-testid="stExpander"] summary {
 
-    color: #FDD023 !important;
+    color: #355340 !important;
 
     font-weight: 600;
 
@@ -598,11 +404,11 @@ div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
 
 [data-testid="stHeading"] h3 {
 
-    color: #FDD023 !important;
+    color: #274232 !important;
 
-    border-left: 4px solid #FDD023;
+    border-left: none !important;
 
-    padding-left: 10px;
+    padding-left: 0 !important;
 
 }
 
@@ -1336,96 +1142,16 @@ except Exception:
 
 
 
-_banner_markup = f"""
-<style>
-
-@keyframes shimmer-border {{
-
-    0% {{ background-position: 0% 50%; }}
-
-    50% {{ background-position: 100% 50%; }}
-
-    100% {{ background-position: 0% 50%; }}
-
-}}
-
-.lsu-banner-wrapper {{
-
-    position: relative;
-
-    background: linear-gradient(90deg, #2D1259 0%, #1a0a36 100%);
-
-    padding: 16px 18px;
-
-    border-radius: 6px;
-
-    margin-bottom: 12px;
-
-    display: flex;
-
-    align-items: center;
-
-    gap: 14px;
-
-    overflow: hidden;
-
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-
-}}
-
-.lsu-banner-wrapper::after {{
-
-    content: "";
-
-    position: absolute;
-
-    bottom: 0;
-
-    left: 0;
-
-    width: 100%;
-
-    height: 3px;
-
-    background: linear-gradient(90deg, #FDD023 0%, #461D7C 50%, #FDD023 100%);
-
-    background-size: 200% 100%;
-
-    animation: shimmer-border 3s infinite linear;
-
-}}
-
-</style>
-
-
-
-<div class="lsu-banner-wrapper">
-
-    {_logo_html}
-
-    <div>
-
-        <div class="lsu-banner-title" style="color:#FDD023; font-size:1.4rem; font-weight:700;
-
-                    font-family:'Georgia',serif; letter-spacing:0.5px; line-height:1.0;">
-
-            LSU CAMERA HEALTH TOOL
-
-        </div>
-
-        <div class="lsu-banner-subtitle" style="color:#c0a8f0; font-size:0.85rem; letter-spacing:1px; margin-top:3px;">
-
-            PUBLIC SAFETY \u00B7 SURVEILLANCE OPERATIONS
-
-        </div>
-
-    </div>
-
-</div>
-
-"""
-
-render_html(_banner_markup)
+render_html(
+    """
+    <style>
+    .app-top-spacer {
+        height: 0.25rem;
+    }
+    </style>
+    <div class="app-top-spacer"></div>
+    """
+)
 
 
 if not theme_dark_mode:
@@ -5717,14 +5443,12 @@ def render_ticket_response_assistant() -> None:
         """
         <style>
         .tra-hero {
-            background:
-                radial-gradient(circle at top left, rgba(143, 94, 231, 0.26), transparent 34%),
-                linear-gradient(180deg, rgba(24, 29, 38, 0.98), rgba(15, 19, 26, 0.98));
-            border: 1px solid rgba(141, 104, 219, 0.28);
-            border-radius: 24px;
-            padding: 1.2rem 1.25rem 1.15rem 1.25rem;
-            margin: 0.15rem 0 1rem 0;
-            box-shadow: 0 20px 48px rgba(0,0,0,0.22);
+            background: linear-gradient(180deg, rgba(24, 29, 38, 0.98), rgba(15, 19, 26, 0.98));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 0.95rem 1rem 0.95rem 1rem;
+            margin: 0.1rem 0 0.8rem 0;
+            box-shadow: none;
         }
         .tra-kicker {
             color: #b796ff;
@@ -5735,7 +5459,7 @@ def render_ticket_response_assistant() -> None:
             margin-bottom: 0.45rem;
         }
         .tra-hero-title {
-            font-size: 2.15rem;
+            font-size: 1.72rem;
             font-weight: 760;
             letter-spacing: -0.03em;
             color: #f6f8fc;
@@ -5749,7 +5473,7 @@ def render_ticket_response_assistant() -> None:
             max-width: 54rem;
         }
         .tra-progress-shell {
-            margin: 1rem 0 0.15rem 0;
+            margin: 0.75rem 0 0.1rem 0;
         }
         .tra-progress-line {
             display: grid;
@@ -5811,14 +5535,12 @@ def render_ticket_response_assistant() -> None:
             padding-left: 0.15rem;
         }
         .tra-card {
-            background:
-                radial-gradient(circle at top left, rgba(255,255,255,0.04), transparent 34%),
-                linear-gradient(180deg, rgba(24, 29, 38, 0.96), rgba(17, 21, 29, 0.98));
-            border: 1px solid rgba(116, 129, 150, 0.22);
-            border-radius: 22px;
-            padding: 1rem 1.05rem 1.05rem 1.05rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
+            background: linear-gradient(180deg, rgba(24, 29, 38, 0.96), rgba(17, 21, 29, 0.98));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 0.85rem 0.9rem 0.9rem 0.9rem;
+            margin-bottom: 0.8rem;
+            box-shadow: none;
         }
         .tra-card-title {
             font-size: 0.76rem;
@@ -5844,22 +5566,21 @@ def render_ticket_response_assistant() -> None:
         .tra-source-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.8rem;
-            margin: 0 0 0.95rem 0;
+            gap: 0.65rem;
+            margin: 0 0 0.75rem 0;
+            align-items: stretch;
         }
         .tra-source-option {
-            background: linear-gradient(180deg, rgba(43, 49, 61, 0.92), rgba(29, 34, 43, 0.96));
-            border: 1px solid rgba(118, 129, 146, 0.24);
-            border-radius: 20px;
-            padding: 1rem;
-            min-height: 8.8rem;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+            background: linear-gradient(180deg, rgba(34, 40, 50, 0.94), rgba(27, 33, 41, 0.98));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 0.85rem;
+            min-height: 7.3rem;
+            box-shadow: none;
         }
         .tra-source-option.primary {
-            background:
-                radial-gradient(circle at top left, rgba(170, 112, 255, 0.26), transparent 38%),
-                linear-gradient(180deg, rgba(65, 43, 108, 0.98), rgba(41, 31, 70, 0.98));
-            border-color: rgba(166, 120, 255, 0.48);
+            background: linear-gradient(180deg, rgba(53, 62, 79, 0.98), rgba(34, 42, 54, 0.98));
+            border-color: rgba(124, 140, 255, 0.34);
         }
         .tra-source-icon {
             font-size: 2rem;
@@ -5881,14 +5602,14 @@ def render_ticket_response_assistant() -> None:
         .tra-meta-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.6rem;
-            margin: 0.2rem 0 0.85rem 0;
+            gap: 0.5rem;
+            margin: 0.15rem 0 0.7rem 0;
         }
         .tra-meta-chip {
-            background: rgba(39, 47, 58, 0.92);
-            border: 1px solid rgba(123, 134, 152, 0.18);
-            border-radius: 15px;
-            padding: 0.75rem 0.85rem;
+            background: rgba(33, 39, 48, 0.94);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 0.62rem 0.72rem;
         }
         .tra-meta-label {
             font-size: 0.7rem;
@@ -7771,14 +7492,30 @@ workspace_options = ["Health Status", "Ticket Related", "Project Related"]
 ticket_area_options = ["Open Tickets", "Ticket Response Assistant"]
 health_area_options = ["Overview", "Action Queue", "Trends", "Retention"]
 project_area_options = ["Camera Installation Builder"]
+workspace_help = {
+    "Health Status": "Review camera health, outage prioritization, trends, and retention.",
+    "Ticket Related": "Work queued tickets and generate LSU-specific responses.",
+    "Project Related": "Build camera installation packages and BOMs.",
+}
+area_help = {
+    "Overview": "Browse the currently filtered camera inventory.",
+    "Action Queue": "Focus on cameras that need attention now.",
+    "Trends": "Review uptime, downtime, and state changes over time.",
+    "Retention": "Find cameras below the retention target.",
+    "Open Tickets": "Review and update tracked ticket records.",
+    "Ticket Response Assistant": "Turn pasted ticket material into structured responses.",
+    "Camera Installation Builder": "Build workbook-driven camera installation packages.",
+}
 
 selected_workspace = st.sidebar.radio("Workspace", workspace_options, key="app_workspace")
+st.sidebar.caption(workspace_help.get(selected_workspace, ""))
 if selected_workspace == "Health Status":
     selected_area = st.sidebar.radio("Area", health_area_options, key="app_area_health")
 elif selected_workspace == "Ticket Related":
     selected_area = st.sidebar.radio("Area", ticket_area_options, key="app_area_ticket")
 else:
     selected_area = st.sidebar.radio("Area", project_area_options, key="app_area_project")
+st.sidebar.caption(area_help.get(selected_area, ""))
 
 csv_path = DEFAULT_SITE_HEALTH_PATH
 
@@ -7795,7 +7532,13 @@ if "site_health_last_upload_signature" not in st.session_state:
     st.session_state.site_health_last_upload_signature = None
 
 with st.sidebar.expander("Health Data Source", expanded=(selected_workspace == "Health Status")):
-    csv_path = st.text_input("CSV path", value=DEFAULT_SITE_HEALTH_PATH)
+    st.caption("Workspace input")
+    st.caption("Choose the Avigilon Site Health export the health workspace should use.")
+    csv_path = st.text_input(
+        "CSV path",
+        value=DEFAULT_SITE_HEALTH_PATH,
+        help="Default is the repo-local export next to app.py. Use Uploaded file if you want a one-off CSV without changing the saved path.",
+    )
 
     source_mode = st.radio(
 
@@ -7814,6 +7557,7 @@ with st.sidebar.expander("Health Data Source", expanded=(selected_workspace == "
         type=["csv"],
 
         key=f"site_health_upload_{st.session_state.site_health_upload_nonce}",
+        help="Use this for a temporary local file when you do not want to change the path field.",
 
     )
 
@@ -7827,7 +7571,7 @@ with st.sidebar.expander("Health Data Source", expanded=(selected_workspace == "
             st.session_state.site_health_last_upload_signature = None
             st.rerun()
 
-    load_clicked = st.button("Load / Reload")
+    load_clicked = st.button("Load / Reload Data")
 
     hard_reset_clicked = st.button("Hard Reset Caches")
 
@@ -7879,10 +7623,11 @@ if hard_reset_clicked:
 
 
 
-with st.sidebar.expander("TDX Ticket Automation", expanded=(selected_workspace == "Ticket Related")):
+with st.sidebar.expander("Ticket Automation Settings", expanded=False):
 
     tdx_email_to = TDX_HELPDESK_EMAIL
 
+    st.caption("Administrative settings")
     st.caption(f"Help tickets are sent to: {TDX_HELPDESK_EMAIL}")
 
     smtp_host = st.text_input("SMTP host", value=os.getenv("SMTP_HOST", ""))
@@ -7999,7 +7744,8 @@ try:
 
 except Exception as e:
 
-    st.error(f"Failed to load CSV: {e}")
+    st.error(f"Failed to load site-health CSV: {e}")
+    st.info("Check the active CSV path or switch to Uploaded file in the Health Data Source panel, then reload.")
 
     st.stop()
 
@@ -8007,37 +7753,12 @@ except Exception as e:
 
 if active_source_label:
 
-    st.sidebar.caption(active_source_label)
     if selected_workspace == "Health Status":
-        render_html(
-            f"""
-            <div style="
-                margin: 0 0 0.7rem 0;
-                padding: 0.55rem 0.8rem;
-                border: 1px solid rgba(253, 208, 35, 0.18);
-                border-radius: 12px;
-                background: linear-gradient(180deg, rgba(27,34,44,0.96), rgba(22,28,36,0.94));
-                box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-            ">
-                <div style="
-                    color: #FDD023;
-                    font-size: 0.68rem;
-                    font-weight: 800;
-                    letter-spacing: 0.08em;
-                    text-transform: uppercase;
-                    margin-bottom: 0.18rem;
-                ">Active Site Health Source</div>
-                <div style="
-                    color: #EAF0F8;
-                    font-size: 0.93rem;
-                    font-weight: 600;
-                    line-height: 1.35;
-                    word-break: break-word;
-                ">{html_escape(active_source_label)}</div>
-                {f'<div style="color:#A9B4C4;font-size:0.78rem;line-height:1.35;margin-top:0.22rem;">{html_escape(active_source_detail)}</div>' if active_source_detail else ''}
-            </div>
-            """
-        )
+        with st.sidebar.container():
+            st.markdown("#### Current source")
+            st.caption(active_source_label)
+            if active_source_detail:
+                st.caption(active_source_detail)
 
 
 
@@ -8049,11 +7770,14 @@ missing = required_cols - set(df.columns)
 
 if missing:
 
-    st.error(f"CSV is missing required columns: {sorted(list(missing))}")
+    st.error(f"The site-health CSV is missing required columns: {sorted(list(missing))}")
+    st.info("The file must include at least 'Server Name' and 'Device Name'. Export a fresh Site Health CSV and reload it.")
 
     st.stop()
 
-st.sidebar.caption(f"Loaded rows: {len(df):,}")
+if selected_workspace == "Health Status":
+    st.sidebar.caption(f"Loaded rows: {len(df):,}")
+    st.sidebar.markdown("---")
 
 
 
@@ -8124,6 +7848,7 @@ unmapped_servers = [
 if selected_workspace == "Health Status":
     with st.sidebar.expander("Server Role Mapping", expanded=False):
 
+        st.caption("Advanced admin")
         st.caption(f"Map file: {SERVER_ROLE_MAP_PATH}")
 
         st.caption(
@@ -8353,27 +8078,7 @@ def on_metric_click(btype):
 
 
 if selected_workspace == "Health Status":
-    m1, m2, m3, m4, m5 = st.columns(5)
-
-    with m1:
-
-        st.button(f"\U0001F4F7 Unique Devices: {df_devices['physical_key'].nunique():,}", on_click=on_metric_click, args=("unique",), use_container_width=True)
-
-    with m2:
-
-        st.button(f"\U0001F4CB All Views: {len(df_views):,}", on_click=on_metric_click, args=("export",), use_container_width=True)
-
-    with m3:
-
-        st.button(f"Avigilon: {len(df_devices[df_devices['Brand'] == 'Avigilon']):,}", on_click=on_metric_click, args=("avigilon",), use_container_width=True)
-
-    with m4:
-
-        st.button(f"Axis: {len(df_devices[df_devices['Brand'] == 'Axis']):,}", on_click=on_metric_click, args=("axis",), use_container_width=True)
-
-    with m5:
-
-        st.button(f"Other: {len(df_devices[df_devices['Brand'].isin(['Other', 'Unknown'])]):,}", on_click=on_metric_click, args=("other",), use_container_width=True)
+    st.session_state.setdefault("health_scope_mode", "unique")
 
 
 
@@ -8386,7 +8091,9 @@ connected_filter = st.session_state.get("connected_filter", "Any")
 visible_filter = st.session_state.get("visible_filter", "Any")
 
 if selected_workspace == "Health Status":
-    with st.sidebar.expander("Advanced Filters", expanded=False):
+    with st.sidebar.expander("Filters", expanded=False):
+        st.caption("View controls")
+        st.caption("Narrow the health views without changing the loaded CSV.")
 
         brand_selected = st.multiselect(
 
@@ -8396,6 +8103,7 @@ if selected_workspace == "Health Status":
 
             key="brand_select",
 
+            help="Filter the camera inventory by manufacturer/brand values found in the export.",
         )
 
         health_options = ["Online", "Offline", "Offline (but still visible)"]
@@ -8410,11 +8118,12 @@ if selected_workspace == "Health Status":
 
             key="health_select",
 
+            help="Limit the view to one or more computed health states.",
         )
 
         show_only_issues = st.checkbox(
 
-            "Show only issue rows",
+            "Show only cameras needing attention",
 
             value=False,
 
@@ -8425,28 +8134,35 @@ if selected_workspace == "Health Status":
         )
 
         connected_filter = st.selectbox(
-            "Connected",
+            "Connected status",
             ["Any", "TRUE", "FALSE"],
             index=["Any", "TRUE", "FALSE"].index(connected_filter if connected_filter in ["Any", "TRUE", "FALSE"] else "Any"),
             key="connected_filter",
+            help="Filter by the export's connected flag.",
         )
 
         visible_filter = st.selectbox(
-            "Visible",
+            "Visible status",
             ["Any", "TRUE", "FALSE"],
             index=["Any", "TRUE", "FALSE"].index(visible_filter if visible_filter in ["Any", "TRUE", "FALSE"] else "Any"),
             key="visible_filter",
+            help="Filter by the export's visible flag.",
         )
 
-    with st.sidebar.expander("Columns found (views export)", expanded=False):
+    with st.sidebar.expander("Export Diagnostics", expanded=False):
 
+        st.caption("Advanced diagnostics")
+        st.caption("Helpful when validating a new export format or debugging missing fields.")
         st.write(list(df_views.columns))
 
 
 
-# ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Main Area: Search ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
+# Main area search ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
 
 search_text = st.session_state.get("search_text", "")
+if selected_workspace == "Health Status":
+    st.sidebar.caption("Use the filters below to narrow the loaded export across Overview, Action Queue, Trends, and Retention.")
+
 
 
 
@@ -9640,7 +9356,7 @@ def render_operations_snapshot(
             f"""
             <div class="ops-chart-shell">
                 <div class="ops-chart-card-title">{html_escape(title)}</div>
-                <div class="ops-chart-card-body">
+                <div class="ops-chart-card-body" style="align-items:flex-start; gap:0.72rem;">
                     <div class="ops-chart-ring" style="background: conic-gradient({", ".join(segment_parts)});">
                         <div class="ops-chart-ring-center">
                             <div class="ops-chart-ring-value">{html_escape(center_text)}</div>
@@ -9658,229 +9374,150 @@ def render_operations_snapshot(
 
 
 
-    with st.expander("Operations Snapshot", expanded=True):
+    if devices_subset.empty:
 
-        if devices_subset.empty:
+        st.info("No devices in the current filtered scope.")
 
-            st.info("No devices in the current filtered scope.")
-
-            return
+        return
 
 
 
-        devices_subset_with_ping = add_ping_status_for_issues(devices_subset)
+    devices_subset_with_ping = add_ping_status_for_issues(devices_subset)
 
-        devices_subset_with_ping = apply_confirmed_healthy_override(devices_subset_with_ping)
+    devices_subset_with_ping = apply_confirmed_healthy_override(devices_subset_with_ping)
 
-        health_state = devices_subset_with_ping.get(
+    health_state = devices_subset_with_ping.get(
 
-            "Health State",
+        "Health State",
 
-            pd.Series([""] * len(devices_subset_with_ping), index=devices_subset_with_ping.index),
+        pd.Series([""] * len(devices_subset_with_ping), index=devices_subset_with_ping.index),
 
-        ).fillna("").astype(str)
+    ).fillna("").astype(str)
 
-        issues_mask_local = compute_action_required_mask(devices_subset_with_ping, use_ping_results=False)
+    issues_mask_local = compute_action_required_mask(devices_subset_with_ping, use_ping_results=False)
 
-        live_issues_mask_local = compute_action_required_mask(devices_subset_with_ping, use_ping_results=True)
+    live_issues_mask_local = compute_action_required_mask(devices_subset_with_ping, use_ping_results=True)
 
-        live_ping_exceptions_local = int((issues_mask_local != live_issues_mask_local).sum())
-
-
-        scoped_tickets = tickets_subset.copy()
-
-        if "key" in scoped_tickets.columns and "key" in devices_subset.columns:
-
-            scoped_keys = set(devices_subset["key"].astype(str).tolist())
-
-            scoped_tickets = scoped_tickets[scoped_tickets["key"].astype(str).isin(scoped_keys)]
+    live_ping_exceptions_local = int((issues_mask_local != live_issues_mask_local).sum())
 
 
+    scoped_tickets = tickets_subset.copy()
 
-        ticket_states_order = ["Pending Send", "Open", "Acknowledged", "Suppressed", "Resolved"]
+    if "key" in scoped_tickets.columns and "key" in devices_subset.columns:
 
-        ticket_state_counts = (
+        scoped_keys = set(devices_subset["key"].astype(str).tolist())
 
-            scoped_tickets.get("ticket_state", pd.Series(dtype=str))
-
-            .fillna("")
-
-            .astype(str)
-
-            .value_counts()
-
-            .reindex(ticket_states_order, fill_value=0)
-
-        )
+        scoped_tickets = scoped_tickets[scoped_tickets["key"].astype(str).isin(scoped_keys)]
 
 
 
-        flaps_7d = pd.to_numeric(
+    ticket_states_order = ["Pending Send", "Open", "Acknowledged", "Suppressed", "Resolved"]
 
-            devices_subset.get("Flaps (7d)", pd.Series([0] * len(devices_subset), index=devices_subset.index)),
+    ticket_state_counts = (
 
-            errors="coerce",
+        scoped_tickets.get("ticket_state", pd.Series(dtype=str))
 
-        ).fillna(0).astype(int)
+        .fillna("")
 
-        OPS_COLOR_GOOD = "#2E8B57"
+        .astype(str)
 
-        OPS_COLOR_WARN = "#A93838"
+        .value_counts()
 
-        OPS_COLOR_WARN_SOFT = "#D89A1E"
+        .reindex(ticket_states_order, fill_value=0)
 
-        OPS_COLOR_UNKNOWN = "#A4ADBB"
+    )
 
 
 
-        render_html(
-            """
-            <div class="ops-snapshot-title">Operations Snapshot</div>
-            <div class="ops-snapshot-subtitle">
-                Review the current monitoring footprint, identify where attention is concentrated, and move from summary counts into the filtered camera worklist below.
-            </div>
-            """
-        )
+    flaps_7d = pd.to_numeric(
 
-        st.markdown(
+        devices_subset.get("Flaps (7d)", pd.Series([0] * len(devices_subset), index=devices_subset.index)),
 
-            """
+        errors="coerce",
+
+    ).fillna(0).astype(int)
+
+    OPS_COLOR_GOOD = "#2E8B57"
+
+    OPS_COLOR_WARN = "#A93838"
+
+    OPS_COLOR_WARN_SOFT = "#D89A1E"
+
+    OPS_COLOR_UNKNOWN = "#A4ADBB"
+
+
+
+    st.markdown(
+
+        """
 
             <style>
 
             .ops-snapshot-title {
-
-                color: #F5F7FB;
-
-                font-size: 1.65rem;
-
-                font-weight: 760;
-
-                line-height: 1.05;
-
-                letter-spacing: -0.02em;
-
-                margin: 0 0 0.2rem 0;
-
+                display: none;
             }
 
             .ops-snapshot-subtitle {
-
-                color: #A9B8CC;
-
-                font-size: 0.84rem;
-
-                line-height: 1.35;
-
-                max-width: 62rem;
-
-                margin: 0 0 0.08rem 0;
-
+                display: none;
             }
 
             .ops-snapshot-metric-card {
-
-                background:
-                    radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 34%),
-                    linear-gradient(180deg, rgba(40, 48, 60, 0.96), rgba(26, 31, 39, 0.98));
-
-                border: 1px solid rgba(145, 160, 184, 0.22);
-
+                background: linear-gradient(180deg, rgba(26, 31, 39, 0.96), rgba(21, 26, 33, 0.98));
+                border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 14px;
-
                 min-height: 72px;
-
-                padding: 0.5rem 0.72rem 0.56rem 0.72rem;
-
-                box-shadow:
-                    0 12px 24px rgba(0, 0, 0, 0.18),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.03);
-
+                padding: 0.65rem 0.78rem 0.68rem 0.78rem;
+                box-shadow: none;
             }
 
             .ops-snapshot-metric-card--priority {
-
-                background:
-                    radial-gradient(circle at top left, rgba(255, 244, 196, 0.32), transparent 38%),
-                    linear-gradient(135deg, rgba(253, 208, 35, 0.98), rgba(212, 163, 21, 0.98));
-
-                border: 1px solid rgba(255, 225, 126, 0.82);
-
-                box-shadow:
-                    0 14px 30px rgba(126, 94, 10, 0.24),
-                    inset 0 1px 0 rgba(255, 247, 207, 0.22);
-
+                background: linear-gradient(180deg, rgba(34, 39, 49, 0.98), rgba(27, 33, 41, 0.98));
+                border: 1px solid rgba(124, 140, 255, 0.28);
+                box-shadow: none;
             }
 
             .ops-snapshot-metric-eyebrow {
-
-                color: rgba(245, 250, 255, 0.72);
-
+                color: #8ea0b4;
                 font-size: 0.62rem;
-
                 letter-spacing: 0.1em;
-
                 text-transform: uppercase;
-
                 font-weight: 700;
-
-                margin-bottom: 0.18rem;
-
+                margin-bottom: 0.2rem;
             }
 
             .ops-snapshot-metric-row {
-
                 display: flex;
-
                 align-items: center;
-
                 justify-content: space-between;
-
                 gap: 0.65rem;
-
             }
 
             .ops-snapshot-metric-label {
-
-                color: #EEF3FA;
-
-                font-size: 0.74rem;
-
-                font-weight: 640;
-
-                line-height: 1.1;
-
+                color: #dce4ef;
+                font-size: 0.76rem;
+                font-weight: 620;
+                line-height: 1.15;
                 margin-bottom: 0;
-
                 max-width: none;
-
             }
 
             .ops-snapshot-metric-card--priority .ops-snapshot-metric-eyebrow,
             .ops-snapshot-metric-card--priority .ops-snapshot-metric-label,
             .ops-snapshot-metric-card--priority .ops-snapshot-metric-value {
-
-                color: #19150B;
-
+                color: #eef3ff;
             }
 
             .ops-snapshot-metric-value {
-
-                color: #FFFFFF;
-
-                font-size: 1.48rem;
-
-                font-weight: 760;
-
+                color: #ffffff;
+                font-size: 1.34rem;
+                font-weight: 720;
                 line-height: 1.0;
-
                 letter-spacing: -0.03em;
-
             }
 
             .ops-snapshot-metrics-anchor + div[data-testid="stHorizontalBlock"] {
 
-                gap: 0.7rem;
+                gap: 0.35rem;
 
             }
 
@@ -9910,7 +9547,7 @@ def render_operations_snapshot(
 
             .ops-snapshot-chart-row-anchor + div[data-testid="stHorizontalBlock"] {
 
-                gap: 0.75rem;
+                gap: 0.35rem;
 
             }
 
@@ -9924,13 +9561,13 @@ def render_operations_snapshot(
 
                 border-radius: 16px;
 
-                padding: 0.7rem 0.75rem 0.6rem 0.75rem;
+                padding: 0.34rem 0.38rem 0.3rem 0.38rem;
 
                 box-shadow:
                     0 16px 28px rgba(0, 0, 0, 0.18),
                     inset 0 1px 0 rgba(255, 255, 255, 0.03);
 
-                min-height: 13.75rem;
+                min-height: 10.9rem;
 
             }
 
@@ -9992,7 +9629,7 @@ def render_operations_snapshot(
 
                 justify-content: flex-start;
 
-                padding: 0.45rem 0.55rem 0.5rem 0.55rem;
+                padding: 0.18rem 0.2rem 0.22rem 0.2rem;
 
                 border-radius: 14px;
 
@@ -10002,7 +9639,7 @@ def render_operations_snapshot(
 
                 box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 
-                min-height: 11.75rem;
+                min-height: 9.25rem;
 
             }
 
@@ -10016,7 +9653,7 @@ def render_operations_snapshot(
 
                 justify-content: center;
 
-                gap: 0.85rem;
+                gap: 0.45rem;
 
                 width: 100%;
 
@@ -10024,15 +9661,15 @@ def render_operations_snapshot(
 
                 margin: 0 auto;
 
-                min-height: 9.9rem;
+                min-height: 8.7rem;
 
             }
 
             .ops-chart-ring {
 
-                width: 148px;
+                width: 118px;
 
-                height: 148px;
+                height: 118px;
 
                 border-radius: 50%;
 
@@ -10050,9 +9687,9 @@ def render_operations_snapshot(
 
             .ops-chart-ring-center {
 
-                width: 88px;
+                width: 68px;
 
-                height: 88px;
+                height: 68px;
 
                 border-radius: 50%;
 
@@ -10090,9 +9727,9 @@ def render_operations_snapshot(
 
                 color: #B7C5DA;
 
-                margin-top: 0.14rem;
+                margin-top: 0.1rem;
 
-                font-size: 0.64rem;
+                font-size: 0.6rem;
 
                 text-transform: uppercase;
 
@@ -10114,6 +9751,10 @@ def render_operations_snapshot(
 
                 gap: 0.18rem;
 
+                align-self: flex-start;
+
+                margin-top: 0.02rem;
+
             }
 
             .ops-chart-legend-item {
@@ -10124,7 +9765,7 @@ def render_operations_snapshot(
 
                 align-items: center;
 
-                column-gap: 0.42rem;
+                column-gap: 0.48rem;
 
                 justify-content: start;
 
@@ -10425,425 +10066,293 @@ def render_operations_snapshot(
 
 
 
-        st.markdown('<div class="ops-snapshot-metrics-anchor"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="ops-snapshot-metrics-anchor"></div>', unsafe_allow_html=True)
 
-        metric_1, metric_2, metric_3, metric_4, metric_5 = st.columns(5)
-        with metric_1:
+    metric_1, metric_2, metric_3, metric_4, metric_5 = st.columns(5)
+    with metric_1:
 
-            _render_snapshot_metric("Filtered Devices", f"{len(devices_subset):,}", eyebrow="Scope")
+        _render_snapshot_metric("Filtered Devices", f"{len(devices_subset):,}", eyebrow="Scope")
 
-        with metric_2:
+    with metric_2:
 
-            _render_snapshot_metric(
-                "Needs Attention",
-                f"{int(issues_mask_local.sum()):,}",
-                variant="priority",
-                eyebrow="Priority",
-            )
-        with metric_3:
+        _render_snapshot_metric(
+            "Needs Attention",
+            f"{int(issues_mask_local.sum()):,}",
+            variant="priority",
+            eyebrow="Priority",
+        )
+    with metric_3:
 
-            _render_snapshot_metric("Live Ping Exceptions", f"{live_ping_exceptions_local:,}", eyebrow="Ping")
-        with metric_4:
+        _render_snapshot_metric("Live Ping Exceptions", f"{live_ping_exceptions_local:,}", eyebrow="Ping")
+    with metric_4:
 
-            _render_snapshot_metric("Open Tickets", f"{int(ticket_state_counts.get('Open', 0)):,}", eyebrow="Queue")
+        _render_snapshot_metric("Open Tickets", f"{int(ticket_state_counts.get('Open', 0)):,}", eyebrow="Queue")
 
-        with metric_5:
+    with metric_5:
 
-            if retention_enabled and "Retention OK" in devices_subset.columns:
-                retention_violations = int((~devices_subset["Retention OK"].fillna(False)).sum())
+        if retention_enabled and "Retention OK" in devices_subset.columns:
+            retention_violations = int((~devices_subset["Retention OK"].fillna(False)).sum())
 
-                _render_snapshot_metric("Retention Violations", f"{retention_violations:,}", eyebrow="Storage")
+            _render_snapshot_metric("Retention Violations", f"{retention_violations:,}", eyebrow="Storage")
 
-            else:
+        else:
 
-                _render_snapshot_metric("Flapping Cameras", f"{int((flaps_7d > 0).sum()):,}", eyebrow="7-Day")
+            _render_snapshot_metric("Flapping Cameras", f"{int((flaps_7d > 0).sum()):,}", eyebrow="7-Day")
 
 
+
+    selected_health = None
+
+    selected_location = None
+
+
+
+    st.markdown('<div class="ops-snapshot-chart-row-anchor"></div>', unsafe_allow_html=True)
+
+    chart_left, chart_middle, chart_right = st.columns(3, gap="medium")
+
+    with chart_left:
+
+        health_order = ["Offline", "Offline (but still visible)", "Online"]
+
+        health_counts = health_state.value_counts().reindex(health_order, fill_value=0)
+
+        health_display_map = {
+
+            "Offline (but still visible)": "Offline (visible)",
+
+        }
+
+        health_counts_display = health_counts.rename(index=health_display_map)
+
+        render_fixed_ring_chart(
+
+            "Health Mix",
+
+            health_counts_display.rename("Count"),
+
+            center_text=f"{int(health_counts.sum()):,}",
+
+            center_label="Devices",
+
+            empty_message="No health data in current scope.",
+
+            category_colors={
+
+                "Offline": OPS_COLOR_WARN,
+
+                "Offline (visible)": OPS_COLOR_WARN_SOFT,
+
+                "Online": OPS_COLOR_GOOD,
+
+            },
+
+        )
 
         selected_health = None
 
-        selected_location = None
+    with chart_middle:
 
+        issue_locations = devices_subset_with_ping.loc[issues_mask_local].copy()
 
+        if not issue_locations.empty and "Location" in issue_locations.columns:
 
-        st.markdown('<div class="ops-snapshot-chart-row-anchor"></div>', unsafe_allow_html=True)
+            location_counts = (
 
-        chart_left, chart_middle, chart_right = st.columns(3, gap="medium")
+                issue_locations["Location"]
 
-        with chart_left:
+                .fillna("")
 
-            health_order = ["Offline", "Offline (but still visible)", "Online"]
+                .astype(str)
 
-            health_counts = health_state.value_counts().reindex(health_order, fill_value=0)
+                .str.strip()
 
-            health_display_map = {
+                .replace("", "Unknown")
 
-                "Offline (but still visible)": "Offline (visible)",
+                .value_counts()
+
+                .head(10)
+
+            )
+
+            location_palette = [
+
+                "#5B8FF9",
+
+                "#6DC8EC",
+
+                "#9270CA",
+
+                "#F6903D",
+
+                "#F08BB4",
+
+                "#5AD8A6",
+
+                "#C2C8D5",
+
+                "#7C6AF2",
+
+                "#FF9D4D",
+
+                "#53A1A9",
+
+            ]
+
+            location_colors = {
+
+                category: location_palette[idx % len(location_palette)]
+
+                for idx, category in enumerate(location_counts.index.astype(str).tolist())
 
             }
 
-            health_display_reverse = {v: k for k, v in health_display_map.items()}
-
-            health_counts_display = health_counts.rename(index=health_display_map)
-
             render_fixed_ring_chart(
 
-                "Health Mix",
+                "Top Locations Needing Attention",
 
-                health_counts_display.rename("Count"),
+                location_counts.rename("Count"),
 
-                center_text=f"{int(health_counts.sum()):,}",
+                center_text=f"{int(location_counts.sum()):,}",
 
                 center_label="Devices",
 
-                empty_message="No health data in current scope.",
+                empty_message="No issue locations in current scope.",
+
+                category_colors=location_colors,
+
+            )
+
+            selected_location = None
+
+        else:
+
+            st.info("No issue locations in current scope.")
+
+            selected_location = None
+
+    with chart_right:
+
+        action_required_subset = devices_subset_with_ping.loc[issues_mask_local].copy()
+
+        if action_required_subset.empty:
+
+            st.info("No action-required devices in current scope.")
+
+        else:
+
+            ping_labeled = add_ping_status_for_issues(action_required_subset)
+
+            ping_text = (
+
+                ping_labeled.get("Ping Status", pd.Series([""] * len(ping_labeled), index=ping_labeled.index))
+
+                .fillna("")
+
+                .astype(str)
+
+                .str.lower()
+
+            )
+
+            pingable_mask = ping_text.str.contains("pingable", na=False) & ~ping_text.str.contains("not pingable", na=False)
+
+            not_pingable_mask = ping_text.str.contains("not pingable|ping error|no ip|invalid ip", na=False)
+
+            unknown_mask = ~(pingable_mask | not_pingable_mask)
+
+            ping_counts = pd.Series(
+
+                {
+
+                    "Pingable": int(pingable_mask.sum()),
+
+                    "Do Not Ping": int(not_pingable_mask.sum()),
+
+                    "Pending / Unknown": int(unknown_mask.sum()),
+
+                }
+
+            )
+
+            render_fixed_ring_chart(
+
+                "Ping Status",
+
+                ping_counts,
+
+                center_text=f"{int(len(action_required_subset)):,}",
+
+                center_label="Devices",
+
+                empty_message="No action-required devices in current scope.",
 
                 category_colors={
 
-                    "Offline": OPS_COLOR_WARN,
+                    "Pingable": OPS_COLOR_GOOD,
 
-                    "Offline (visible)": OPS_COLOR_WARN_SOFT,
+                    "Do Not Ping": OPS_COLOR_WARN_SOFT,
 
-                    "Online": OPS_COLOR_GOOD,
+                    "Pending / Unknown": OPS_COLOR_UNKNOWN,
 
                 },
 
             )
 
-            selected_health = None
 
-        with chart_middle:
 
-            issue_locations = devices_subset_with_ping.loc[issues_mask_local].copy()
+    if selected_health:
 
-            if not issue_locations.empty and "Location" in issue_locations.columns:
+        st.session_state["ops_snapshot_selected_health"] = selected_health
 
-                location_counts = (
+    if selected_location:
 
-                    issue_locations["Location"]
+        st.session_state["ops_snapshot_selected_location"] = selected_location
 
-                    .fillna("")
+    selected_health = st.session_state.get("ops_snapshot_selected_health", "")
 
-                    .astype(str)
+    selected_location = st.session_state.get("ops_snapshot_selected_location", "")
 
-                    .str.strip()
 
-                    .replace("", "Unknown")
 
-                    .value_counts()
+    if selected_health or selected_location:
 
-                    .head(10)
-
-                )
-
-                location_palette = [
-
-                    "#5B8FF9",
-
-                    "#6DC8EC",
-
-                    "#9270CA",
-
-                    "#F6903D",
-
-                    "#F08BB4",
-
-                    "#5AD8A6",
-
-                    "#C2C8D5",
-
-                    "#7C6AF2",
-
-                    "#FF9D4D",
-
-                    "#53A1A9",
-
-                ]
-
-                location_colors = {
-
-                    category: location_palette[idx % len(location_palette)]
-
-                    for idx, category in enumerate(location_counts.index.astype(str).tolist())
-
-                }
-
-                render_fixed_ring_chart(
-
-                    "Top Locations Needing Attention",
-
-                    location_counts.rename("Count"),
-
-                    center_text=f"{int(location_counts.sum()):,}",
-
-                    center_label="Devices",
-
-                    empty_message="No issue locations in current scope.",
-
-                    category_colors=location_colors,
-
-                )
-
-                selected_location = None
-
-            else:
-
-                st.info("No issue locations in current scope.")
-
-                selected_location = None
-
-        with chart_right:
-
-            action_required_subset = devices_subset_with_ping.loc[issues_mask_local].copy()
-
-            if action_required_subset.empty:
-
-                st.info("No action-required devices in current scope.")
-
-            else:
-
-                ping_labeled = add_ping_status_for_issues(action_required_subset)
-
-                ping_text = (
-
-                    ping_labeled.get("Ping Status", pd.Series([""] * len(ping_labeled), index=ping_labeled.index))
-
-                    .fillna("")
-
-                    .astype(str)
-
-                    .str.lower()
-
-                )
-
-                pingable_mask = ping_text.str.contains("pingable", na=False) & ~ping_text.str.contains("not pingable", na=False)
-
-                not_pingable_mask = ping_text.str.contains("not pingable|ping error|no ip|invalid ip", na=False)
-
-                unknown_mask = ~(pingable_mask | not_pingable_mask)
-
-                ping_counts = pd.Series(
-
-                    {
-
-                        "Pingable": int(pingable_mask.sum()),
-
-                        "Do Not Ping": int(not_pingable_mask.sum()),
-
-                        "Pending / Unknown": int(unknown_mask.sum()),
-
-                    }
-
-                )
-
-                render_fixed_ring_chart(
-
-                    "Ping Status",
-
-                    ping_counts,
-
-                    center_text=f"{int(len(action_required_subset)):,}",
-
-                    center_label="Devices",
-
-                    empty_message="No action-required devices in current scope.",
-
-                    category_colors={
-
-                        "Pingable": OPS_COLOR_GOOD,
-
-                        "Do Not Ping": OPS_COLOR_WARN_SOFT,
-
-                        "Pending / Unknown": OPS_COLOR_UNKNOWN,
-
-                    },
-
-                )
-
-
+        active_parts = []
 
         if selected_health:
 
-            st.session_state["ops_snapshot_selected_health"] = selected_health
+            active_parts.append(f"Health = {selected_health}")
 
         if selected_location:
 
-            st.session_state["ops_snapshot_selected_location"] = selected_location
+            active_parts.append(f"Location = {selected_location}")
 
-        selected_health = st.session_state.get("ops_snapshot_selected_health", "")
+        st.caption(
 
-        selected_location = st.session_state.get("ops_snapshot_selected_location", "")
+            "Snapshot filter active for All Filtered Cameras: "
 
+            + " | ".join(active_parts)
 
-
-        if selected_health or selected_location:
-
-            active_parts = []
-
-            if selected_health:
-
-                active_parts.append(f"Health = {selected_health}")
-
-            if selected_location:
-
-                active_parts.append(f"Location = {selected_location}")
-
-            st.caption(
-
-                "Snapshot filter active for All Filtered Cameras: "
-
-                + " | ".join(active_parts)
-
-            )
+        )
 
 
 
-            action_col, _ = st.columns([0.24, 0.76])
+        action_col, _ = st.columns([0.24, 0.76])
 
-            with action_col:
+        with action_col:
 
-                if st.button("Clear Chart Selection", key="ops_snapshot_clear_selection", use_container_width=True):
+            if st.button("Clear Chart Selection", key="ops_snapshot_clear_selection", use_container_width=True):
 
-                    st.session_state.pop("ops_snapshot_selected_health", None)
+                st.session_state.pop("ops_snapshot_selected_health", None)
 
-                    st.session_state.pop("ops_snapshot_selected_location", None)
+                st.session_state.pop("ops_snapshot_selected_location", None)
 
-                    st.rerun()
+                st.rerun()
 
 
 def render_health_dashboard_chrome(active_area: str) -> None:
-
-    active_nav = {
-        "Overview": "Dashboard",
-        "Action Queue": "Action Queue",
-        "Trends": "Trends",
-        "Retention": "Retention",
-    }.get(active_area, "Dashboard")
-    nav_items = ["Dashboard", "Action Queue", "Trends", "Retention", "Settings"]
-    nav_markup = "".join(
-        f"""
-        <div class="health-mobile-nav-item{' active' if item == active_nav else ''}">
-            <div class="health-mobile-nav-icon">{html_escape(item[:1])}</div>
-            <div class="health-mobile-nav-label">{html_escape(item)}</div>
-        </div>
-        """
-        for item in nav_items
-    )
-    render_html(
-        f"""
-        <style>
-        .health-mobile-shell {{
-            display: none;
-        }}
-        @media (max-width: 820px) {{
-            .health-mobile-shell {{
-                display: block;
-                margin: 0 0 1rem 0;
-            }}
-            .lsu-banner-wrapper {{
-                display: none !important;
-            }}
-            .health-mobile-topbar {{
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                background: linear-gradient(180deg, rgba(32, 36, 43, 0.98), rgba(23, 26, 32, 0.98));
-                border-bottom: 1px solid rgba(255,255,255,0.08);
-                padding: 0.68rem 0.75rem;
-                margin: -0.2rem -0.2rem 0.65rem -0.2rem;
-            }}
-            .health-mobile-brand {{
-                display: flex;
-                align-items: center;
-                gap: 0.55rem;
-                color: #F5F7FA;
-                font-weight: 760;
-                font-size: 0.94rem;
-                letter-spacing: -0.02em;
-            }}
-            .health-mobile-logo {{
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                min-width: 2.8rem;
-                height: 1.75rem;
-                border-radius: 0.45rem;
-                background: linear-gradient(135deg, rgba(70,29,124,1), rgba(39,17,77,1));
-                color: #FDD023;
-                font-size: 0.82rem;
-                font-weight: 800;
-            }}
-            .health-mobile-gear,
-            .health-mobile-menu {{
-                color: #E7EBF2;
-                font-size: 1.18rem;
-                line-height: 1;
-                opacity: 0.9;
-            }}
-            .health-mobile-nav {{
-                position: fixed;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 999;
-                display: grid;
-                grid-template-columns: repeat(5, minmax(0, 1fr));
-                padding: 0.38rem 0.15rem calc(0.38rem + env(safe-area-inset-bottom));
-                background: rgba(22, 24, 31, 0.96);
-                border-top: 1px solid rgba(255,255,255,0.08);
-                backdrop-filter: blur(12px);
-            }}
-            .health-mobile-nav-item {{
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                gap: 0.2rem;
-                color: #9099A6;
-                text-align: center;
-                min-height: 3rem;
-            }}
-            .health-mobile-nav-item.active {{
-                color: #FDD023;
-            }}
-            .health-mobile-nav-item.active .health-mobile-nav-icon {{
-                background: rgba(70, 29, 124, 0.92);
-                color: #FDD023;
-            }}
-            .health-mobile-nav-icon {{
-                width: 1.8rem;
-                height: 1.8rem;
-                border-radius: 0.55rem;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255,255,255,0.04);
-                color: inherit;
-                font-size: 0.78rem;
-                font-weight: 700;
-            }}
-            .health-mobile-nav-label {{
-                font-size: 0.64rem;
-                line-height: 1.05;
-            }}
-            .stMainBlockContainer {{
-                padding-bottom: 5rem !important;
-            }}
-        }}
-        </style>
-        <div class="health-mobile-shell">
-            <div class="health-mobile-topbar">
-                <div class="health-mobile-menu">&#9776;</div>
-                <div class="health-mobile-brand">
-                    <span class="health-mobile-logo">LSU</span>
-                    <span>Camera Health Tool</span>
-                </div>
-                <div class="health-mobile-gear">&#9881;</div>
-            </div>
-            <div class="health-mobile-nav">{nav_markup}</div>
-        </div>
-        """
-    )
+    # Legacy mobile chrome removed in favor of a cleaner, quieter app shell.
+    return
 
 
 def _health_status_badge_html(value: object) -> str:
@@ -10862,142 +10371,40 @@ def _health_status_badge_html(value: object) -> str:
 
 def render_mobile_filtered_cameras_table(data_subset: pd.DataFrame) -> None:
 
-    if data_subset.empty:
-        st.info("No cameras match the current filters in this view.")
-        return
-    display_df = data_subset.copy()
-    camera_name = display_df.get("Device Name Base", pd.Series([""] * len(display_df), index=display_df.index)).fillna("").astype(str)
-    location = display_df.get("Location", pd.Series([""] * len(display_df), index=display_df.index)).fillna("").astype(str).replace("", "Unknown")
-    status = display_df.get("Health", pd.Series(["Unknown"] * len(display_df), index=display_df.index)).fillna("Unknown").astype(str)
-    ping_status = display_df.get("Ping Status", pd.Series([""] * len(display_df), index=display_df.index)).fillna("").astype(str)
-    ticket_id = display_df.get("Ticket ID", pd.Series([""] * len(display_df), index=display_df.index)).fillna("").astype(str)
-    rows_html = "".join(
-        f"""
-        <tr>
-            <td>{html_escape(cam or 'Unknown')}</td>
-            <td>{html_escape(loc)}</td>
-            <td>{_health_status_badge_html(stat)}</td>
-            <td>{html_escape(ping or 'Pending')}</td>
-            <td>{html_escape(ticket or '-')}</td>
-        </tr>
-        """
-        for cam, loc, stat, ping, ticket in zip(camera_name.tolist(), location.tolist(), status.tolist(), ping_status.tolist(), ticket_id.tolist())
-    )
-    render_html(
-        f"""
-        <style>
-        .health-table-wrap {{
-            background: linear-gradient(180deg, rgba(29, 31, 36, 0.98), rgba(21, 23, 28, 0.98));
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 16px 34px rgba(0,0,0,0.18);
-        }}
-        .health-table-scroll {{
-            max-height: 28rem;
-            overflow: auto;
-        }}
-        .health-table {{
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 0.84rem;
-            color: #EEF2F7;
-            background: transparent;
-        }}
-        .health-table thead th {{
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            text-align: left;
-            padding: 0.72rem 0.78rem;
-            background: rgba(45, 48, 55, 0.98);
-            color: #F4F6FA;
-            font-size: 0.68rem;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-        }}
-        .health-table tbody td {{
-            padding: 0.72rem 0.78rem;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            vertical-align: middle;
-            color: #E8EDF5;
-        }}
-        .health-table tbody tr:last-child td {{
-            border-bottom: none;
-        }}
-        .health-table-status {{
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 1.65rem;
-            padding: 0.12rem 0.58rem;
-            border-radius: 999px;
-            color: #FFFFFF;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.01em;
-        }}
-        .health-table-status.online {{
-            background: #2E9B57;
-        }}
-        .health-table-status.offline {{
-            background: #A93838;
-        }}
-        .health-table-status.warning {{
-            background: #C88A14;
-            color: #18140A;
-        }}
-        .health-table-status.neutral {{
-            background: rgba(133, 145, 163, 0.28);
-        }}
-        @media (max-width: 820px) {{
-            .health-table-scroll {{
-                max-height: none;
-            }}
-            .health-table thead th,
-            .health-table tbody td {{
-                padding: 0.65rem 0.68rem;
-            }}
-            .health-table {{
-                min-width: 46rem;
-            }}
-        }}
-        </style>
-        <div class="health-table-wrap">
-            <div class="health-table-scroll">
-                <table class="health-table">
-                    <thead>
-                        <tr>
-                            <th>Camera Name</th>
-                            <th>Location</th>
-                            <th>Status</th>
-                            <th>Ping</th>
-                            <th>Ticket</th>
-                        </tr>
-                    </thead>
-                    <tbody>{rows_html}</tbody>
-                </table>
-            </div>
-        </div>
-        """
+    overview_display_order = [
+        "Health",
+        "Device Name Base",
+        "key",
+        "IP Address",
+        "Location",
+        "Ping Status",
+        "Ticket ID",
+        "Primary Connection",
+        "Secondary Connection",
+        "Error Flags",
+        "Servers",
+        "disposition",
+        "notes",
+    ]
+    render_data_editor(
+        data_subset,
+        "overview",
+        preferred_order=overview_display_order,
+        default_visible_cols=[
+            "Health",
+            "Device Name Base",
+            "key",
+            "IP Address",
+            "Location",
+            "Ping Status",
+            "Ticket ID",
+        ],
     )
 
 
-if selected_workspace == "Health Status":
+if selected_workspace == "Health Status" and selected_area == "Overview":
 
     render_health_dashboard_chrome(selected_area)
-
-    render_operations_snapshot(
-
-        devices_subset=filtered_devices,
-
-        tickets_subset=tickets_df,
-
-        retention_enabled=retention_available,
-
-    )
 
 
 
@@ -11193,6 +10600,8 @@ def render_data_editor(
 
     default_visible_cols: list[str] | None = None,
 
+    selected_optional_cols_override: list[str] | None = None,
+
 ):
 
     order = preferred_order if preferred_order is not None else preferred_cols
@@ -11261,7 +10670,14 @@ def render_data_editor(
 
     optional_cols = [c for c in available_cols if c not in default_open_cols]
 
-    if key_suffix == "issues":
+    if selected_optional_cols_override is not None:
+
+        display_cols = [c for c in selected_optional_cols_override if c in available_cols]
+        if not display_cols:
+            display_cols = default_open_cols or available_cols
+        selected_optional_cols = [c for c in display_cols if c in optional_cols]
+
+    elif key_suffix == "issues":
 
         st.markdown(
             """
@@ -11330,7 +10746,9 @@ def render_data_editor(
 
         )
 
-    display_cols = default_open_cols + [c for c in selected_optional_cols if c in optional_cols]
+    if selected_optional_cols_override is None:
+
+        display_cols = default_open_cols + [c for c in selected_optional_cols if c in optional_cols]
 
     if not display_cols:
 
@@ -11874,6 +11292,8 @@ def render_action_required_ticket_queue(ticket_subset: pd.DataFrame):
 
 
 
+    st.caption("Select one or more pending items below, then use the queue actions to create emails or acknowledge them.")
+
     c1, c2, c3 = st.columns(3)
 
     with c1:
@@ -11890,7 +11310,7 @@ def render_action_required_ticket_queue(ticket_subset: pd.DataFrame):
 
     with c2:
 
-        if st.button(f"Create Help Ticket ({selected_count})", key="tab2_create_help_ticket", use_container_width=True, disabled=selected_count == 0):
+        if st.button(f"Send Help Ticket Email ({selected_count})", key="tab2_create_help_ticket", use_container_width=True, disabled=selected_count == 0):
 
             selected_rows = tickets_df[
 
@@ -11970,7 +11390,7 @@ def render_action_required_ticket_queue(ticket_subset: pd.DataFrame):
 
     with c3:
 
-        if st.button(f"Acknowledge ({selected_count})", key="tab2_ack_selected", use_container_width=True, disabled=selected_count == 0):
+        if st.button(f"Acknowledge Selected ({selected_count})", key="tab2_ack_selected", use_container_width=True, disabled=selected_count == 0):
 
             ack_mask = (
 
@@ -12074,27 +11494,12 @@ render_html(
     """
 )
 
-if selected_workspace != "Health Status":
-    workspace_subtitles = {
-        "Ticket Related": "Work on ticket queue management and response drafting without the health dashboard taking over the page.",
-        "Project Related": "Use the installation builder in a dedicated workspace with the rest of the operations UI out of the way.",
-    }
-    render_html(
-        f"""
-        <section class="ops-command-shell">
-            <div>
-                <div class="ops-command-kicker">{html_escape(selected_workspace)}</div>
-                <div class="ops-command-title">{html_escape(selected_area)}</div>
-                <div class="ops-command-subtitle">{html_escape(workspace_subtitles.get(selected_workspace, ''))}</div>
-            </div>
-        </section>
-        """
-    )
-
 
 
 
 def render_tickets_editor(ticket_subset: pd.DataFrame):
+
+    st.caption("Work the active ticket queue here. Update status, TDX IDs, and resolution details, then save the queue when you are done.")
 
     if ticket_subset.empty:
 
@@ -12114,17 +11519,37 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
     ]
 
+    ticket_view = ticket_subset[cols].copy()
+    extra_ticket_cols = [
+        c for c in ["offline_since", "email_to", "created_at", "email_sent_at", "last_error"] if c in ticket_view.columns
+    ]
+    selected_extra_cols = st.multiselect(
+        "Show Additional Columns",
+        options=extra_ticket_cols,
+        default=[],
+        key="ticket_editor_extra_cols",
+        help="Show less-used ticket fields without crowding the default ticket queue view.",
+    )
+    default_ticket_cols = [
+        c for c in [
+            "ticket_state", "ticket_id", "device_name", "location", "offline_hours_at_creation", "resolution", "resolution_notes"
+        ] if c in ticket_view.columns
+    ]
+    display_ticket_cols = default_ticket_cols + [c for c in selected_extra_cols if c not in default_ticket_cols]
+
+    st.caption("Default queue view stays focused on the fields you are most likely to update during active ticket work.")
+
     edited = st.data_editor(
 
-        ticket_subset[cols],
+        ticket_view[display_ticket_cols],
 
         width="stretch",
 
-        height=420,
+        height=460,
 
         hide_index=True,
 
-        disabled=[c for c in cols if c not in ["ticket_state", "ticket_id", "resolution", "resolution_notes"]],
+        disabled=[c for c in display_ticket_cols if c not in ["ticket_state", "ticket_id", "resolution", "resolution_notes"]],
 
         column_config={
 
@@ -12158,23 +11583,30 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
     )
 
+    ticket_save_df = ticket_view.copy()
+    for col in edited.columns:
+        ticket_save_df[col] = edited[col]
 
+    save_col, helper_col = st.columns([0.24, 0.76])
+    with save_col:
+        if st.button("Save Tickets", key="save_tickets", use_container_width=True):
 
-    if st.button("Save Tickets", key="save_tickets"):
-
-        save_tickets_from_editor(edited)
+            save_tickets_from_editor(ticket_save_df)
+    with helper_col:
+        st.caption("Saving writes the current queue edits back to the tracked tickets file.")
 
 
 
 def render_retention_tab(retention_subset: pd.DataFrame):
 
-    st.subheader("Retention")
-
-    st.caption(f"Cameras below {RETENTION_POLICY_DAYS} days retention from current filters.")
+    render_health_section_intro(
+        "Retention",
+        f"Review cameras currently below the {RETENTION_POLICY_DAYS}-day retention target within the active filter scope.",
+    )
 
     if retention_subset.empty:
 
-        st.info("No retention violations in the current filtered scope.")
+        st.info("No retention violations in the current filtered scope. That means every visible camera is at or above the current retention threshold.")
 
         return
 
@@ -12212,22 +11644,19 @@ def render_retention_tab(retention_subset: pd.DataFrame):
 
     display_df = retention_subset[cols].copy()
 
-
-
-    st.data_editor(
-
+    render_data_editor(
         display_df,
-
-        width="stretch",
-
-        height=550,
-
-        hide_index=True,
-
-        disabled=list(display_df.columns),
-
-        key="retention_table",
-
+        "retention",
+        preferred_order=preferred_cols_retention,
+        default_visible_cols=[
+            "Retention Gap",
+            "Retention (days)",
+            "Health",
+            "Device Name Base",
+            "key",
+            "Location",
+            "Ticket ID",
+        ],
     )
 
 
@@ -12236,13 +11665,14 @@ def render_retention_tab(retention_subset: pd.DataFrame):
 
 def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataFrame, observed_at_ts: pd.Timestamp):
 
-    st.subheader("Connectivity Trends")
-
-    st.caption("Historical uptime/downtime from state transitions within the current filtered camera scope.")
+    render_health_section_intro(
+        "Connectivity Trends",
+        "Review historical uptime, downtime, and volatility within the current camera scope so you can spot persistent operational risk.",
+    )
 
     if devices_subset.empty:
 
-        st.info("No cameras match the current filters in this view.")
+        st.info("No cameras match the current filters in this view. Broaden the filters to generate trend charts.")
 
         return
 
@@ -12280,12 +11710,13 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
     if daily_trends_df.empty:
 
-        st.info("No trend data available yet.")
+        st.info("No trend data is available yet for the selected camera scope. Keep collecting state transitions and try again later.")
 
         return
 
 
 
+    st.caption("Window summary")
     metric_1, metric_2, metric_3, metric_4 = st.columns(4)
 
     with metric_1:
@@ -12322,6 +11753,7 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
 
 
+    st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
     granularity = st.radio(
 
         "Trend Granularity",
@@ -12344,15 +11776,17 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
 
 
+    chart_col_left, chart_col_right = st.columns(2, gap="large")
+
     uptime_chart_df = trend_df.set_index("Period")[["Uptime %", "Downtime %"]]
-
-    st.line_chart(uptime_chart_df, height=300)
-
-
+    with chart_col_left:
+        st.caption("Trend view")
+        st.line_chart(uptime_chart_df, height=300)
 
     changes_chart_df = trend_df.set_index("Period")[["State Changes"]]
-
-    st.bar_chart(changes_chart_df, height=240)
+    with chart_col_right:
+        st.caption("Change activity")
+        st.bar_chart(changes_chart_df, height=300)
 
 
 
@@ -12366,20 +11800,11 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
         table_cols = ["Period", "Online Hours", "Offline Hours", "Uptime %", "Downtime %", "State Changes"]
 
-    st.data_editor(
-
+    render_data_editor(
         trend_df[table_cols].copy(),
-
-        width="stretch",
-
-        height=320,
-
-        hide_index=True,
-
-        disabled=table_cols,
-
-        key="connectivity_trends_table",
-
+        "connectivity_trends",
+        preferred_order=table_cols,
+        default_visible_cols=table_cols,
     )
 
 
@@ -12454,40 +11879,22 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
         st.markdown("###### Top Uptime")
 
-        st.data_editor(
-
+        render_data_editor(
             best_uptime_df[leaderboard_cols].copy(),
-
-            width="stretch",
-
-            height=340,
-
-            hide_index=True,
-
-            disabled=leaderboard_cols,
-
-            key="top_uptime_leaderboard",
-
+            "top_uptime_leaderboard",
+            preferred_order=leaderboard_cols,
+            default_visible_cols=leaderboard_cols,
         )
 
     with lagger_col:
 
         st.markdown("###### Lowest Uptime")
 
-        st.data_editor(
-
+        render_data_editor(
             worst_uptime_df[leaderboard_cols].copy(),
-
-            width="stretch",
-
-            height=340,
-
-            hide_index=True,
-
-            disabled=leaderboard_cols,
-
-            key="lowest_uptime_leaderboard",
-
+            "lowest_uptime_leaderboard",
+            preferred_order=leaderboard_cols,
+            default_visible_cols=leaderboard_cols,
         )
 
 
@@ -12496,64 +11903,379 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
 def render_overview_section() -> None:
 
-    st.subheader("All Filtered Cameras")
-
-    st.caption("Full filtered inventory for browsing and spot checks.")
-
     render_html(
         """
         <style>
-        .camera-search-bar {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            margin: 0.15rem 0 0.45rem 0;
+        .overview-surface,
+        .overview-surface * {
+            color-scheme: light !important;
         }
-        .camera-search-bar-label {
-            color: #A9B4C4;
-            font-size: 0.72rem;
+        .overview-surface {
+            margin-top: -1.2rem;
+            padding: 0.02rem 0 0.08rem 0;
+            background: linear-gradient(180deg, #f7faf5 0%, #f1f6ef 100%);
+            border-radius: 18px;
+        }
+        .overview-surface .health-intro-card {
+            margin: 0 !important;
+            padding: 0 0 0.12rem 0 !important;
+        }
+        .overview-surface .health-intro-eyebrow {
+            color: #6a7f70 !important;
+        }
+        .overview-surface .health-intro-title {
+            color: #22372b !important;
+        }
+        .overview-surface .health-intro-subtitle {
+            color: #607362 !important;
+            max-width: 50rem;
+        }
+        .overview-surface [data-testid="stMetric"],
+        .overview-surface [data-testid="stMetric"] > div {
+            background: linear-gradient(180deg, #fdfefd, #f1f6ef) !important;
+            border: 1px solid rgba(106, 136, 112, 0.16) !important;
+            border-radius: 14px !important;
+            padding: 0.42rem 0.5rem !important;
+            box-shadow: none !important;
+        }
+        .overview-surface [data-testid="stMetricLabel"] > div {
+            color: #6a7f70 !important;
+            font-size: 0.64rem !important;
+        }
+        .overview-surface [data-testid="stMetricValue"] > div {
+            color: #21352a !important;
+            font-size: 1.05rem !important;
+        }
+        .overview-surface .camera-search-bar-label {
+            color: #617764 !important;
+            font-size: 0.66rem;
             font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            margin: 0 0 0.22rem 0.02rem;
+            margin: 0 0 0.06rem 0.02rem;
+        }
+        .overview-surface div[data-testid="stTextInput"] input {
+            background: #fcfefb !important;
+            color: #20372a !important;
+            border: 1px solid rgba(106, 136, 112, 0.18) !important;
+            border-radius: 12px !important;
+            box-shadow: none !important;
+        }
+        .overview-surface div[data-testid="stButton"] > button[kind="primary"] {
+            background: #4f7a5b !important;
+            border: 1px solid #4f7a5b !important;
+            color: #f6fbf7 !important;
+            border-radius: 999px !important;
+            min-height: 36px !important;
+            box-shadow: none !important;
+        }
+        .overview-surface div[data-testid="stButton"] > button[kind="primary"] * {
+            color: #f6fbf7 !important;
+        }
+        .overview-surface div[data-testid="stButton"] > button[kind="secondary"] {
+            background: #eef4ee !important;
+            border: 1px solid rgba(106, 136, 112, 0.16) !important;
+            color: #2e4b36 !important;
+            border-radius: 999px !important;
+            min-height: 36px !important;
+            box-shadow: none !important;
+        }
+        .overview-surface div[data-testid="stButton"] > button[kind="secondary"] * {
+            color: #2e4b36 !important;
+        }
+        .overview-surface div[data-testid="stButton"] > button:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .overview-surface [data-testid="stDataFrame"],
+        .overview-surface [data-testid="stDataEditor"] {
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .overview-surface [data-testid="stDataFrame"] > div,
+        .overview-surface [data-testid="stDataEditor"] > div {
+            background: #fbfdfb !important;
+            border: 1px solid rgba(106, 136, 112, 0.16) !important;
+            border-radius: 14px !important;
+            box-shadow: none !important;
+        }
+        .overview-surface [data-testid="stDataFrame"] th,
+        .overview-surface [data-testid="stDataEditor"] th {
+            background: #eef4ee !important;
+            color: #4b6753 !important;
+            border-bottom: 1px solid rgba(106, 136, 112, 0.14) !important;
+        }
+        .overview-surface [data-testid="stDataFrame"] tr:nth-child(even),
+        .overview-surface [data-testid="stDataEditor"] tr:nth-child(even) {
+            background: #f8fbf8 !important;
+        }
+        .overview-surface [data-testid="stDataFrame"] tr:hover,
+        .overview-surface [data-testid="stDataEditor"] tr:hover {
+            background: #eef6ef !important;
+        }
+        .overview-surface .stMarkdown h3 {
+            margin: 0.02rem 0 0.12rem 0 !important;
+            color: #254031 !important;
+        }
+        .overview-surface .stCaption {
+            margin-bottom: 0.03rem !important;
+            color: #637665 !important;
+        }
+        .overview-surface [data-testid="stHorizontalBlock"] {
+            row-gap: 0.06rem !important;
+        }
+        .overview-surface .ops-snapshot-metric-card {
+            background: linear-gradient(180deg, #fcfefc, #f1f6ef) !important;
+            border: 1px solid rgba(106, 136, 112, 0.14) !important;
+            box-shadow: none !important;
+        }
+        .overview-surface .ops-snapshot-metric-card--priority {
+            background: linear-gradient(180deg, #edf6ef, #e6f1e8) !important;
+            border: 1px solid rgba(79, 122, 91, 0.24) !important;
+        }
+        .overview-surface .ops-snapshot-metric-eyebrow,
+        .overview-surface .ops-snapshot-metric-label {
+            color: #5f7463 !important;
+        }
+        .overview-surface .ops-snapshot-metric-value,
+        .overview-surface .ops-snapshot-metric-card--priority .ops-snapshot-metric-value {
+            color: #21352a !important;
+        }
+        .overview-surface .ops-snapshot-chart-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div {
+            background: linear-gradient(180deg, #fcfefc, #f2f7f0) !important;
+            border: 1px solid rgba(106, 136, 112, 0.14) !important;
+            box-shadow: none !important;
+        }
+        .overview-surface .ops-chart-shell {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .overview-surface .ops-chart-card-title {
+            color: #264131 !important;
+        }
+        .overview-surface .ops-chart-ring-center {
+            background: radial-gradient(circle at 32% 25%, #ffffff, #eef4ee) !important;
+            border: 1px solid rgba(106, 136, 112, 0.14) !important;
+        }
+        .overview-surface .ops-chart-ring-value {
+            color: #264131 !important;
+        }
+        .overview-surface .ops-chart-ring-label,
+        .overview-surface .ops-chart-legend-label,
+        .overview-surface .ops-chart-legend-count {
+            color: #617664 !important;
+        }
+        .overview-surface .ops-chart-legend-swatch {
+            box-shadow: none !important;
+        }
+        .overview-surface [data-testid="stMetric"],
+        .overview-surface [data-testid="stMetric"] > div,
+        .overview-surface [data-testid="stMetric"] [data-testid="stMetricLabel"],
+        .overview-surface [data-testid="stMetric"] [data-testid="stMetricValue"] {
+            background: linear-gradient(180deg, #fdfefd, #f1f6ef) !important;
+            color: #21352a !important;
+            border-color: rgba(106, 136, 112, 0.16) !important;
+            box-shadow: none !important;
+        }
+        .overview-surface .ops-snapshot-metric-card,
+        .overview-surface .ops-snapshot-chart-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div,
+        .overview-surface .ops-chart-shell,
+        .overview-surface .ops-chart-ring-center {
+            background: #fdfefd !important;
+            background-image: none !important;
+            color: #21352a !important;
+            border-color: rgba(106, 136, 112, 0.14) !important;
+            box-shadow: none !important;
+        }
+        .overview-surface .ops-chart-card-title,
+        .overview-surface .ops-chart-ring-value,
+        .overview-surface .ops-chart-ring-label,
+        .overview-surface .ops-chart-legend-label,
+        .overview-surface .ops-chart-legend-count,
+        .overview-surface .ops-snapshot-metric-eyebrow,
+        .overview-surface .ops-snapshot-metric-label,
+        .overview-surface .ops-snapshot-metric-value {
+            color: #294234 !important;
+        }
+        .overview-surface [data-testid="stButton"] > button,
+        .overview-surface [data-testid="stButton"] > button * {
+            box-shadow: none !important;
+        }
+        .overview-surface [data-testid="stButton"] > button[kind="primary"],
+        .overview-surface [data-testid="stButton"] > button[kind="primary"] * {
+            background: #4f7a5b !important;
+            color: #f7fbf7 !important;
+            border-color: #4f7a5b !important;
+        }
+        .overview-surface [data-testid="stButton"] > button[kind="secondary"],
+        .overview-surface [data-testid="stButton"] > button[kind="secondary"] * {
+            background: #eef4ee !important;
+            color: #294234 !important;
+            border-color: rgba(106, 136, 112, 0.16) !important;
+        }
+        .overview-surface [data-testid="stTextInput"] input,
+        .overview-surface [data-testid="stPopover"] button,
+        .overview-surface [data-baseweb="popover"] * {
+            background: #fcfefb !important;
+            color: #21352a !important;
+            border-color: rgba(106, 136, 112, 0.18) !important;
+        }
+        .overview-surface [data-testid="stDataEditor"],
+        .overview-surface [data-testid="stDataEditor"] > div,
+        .overview-surface [data-testid="stDataFrame"],
+        .overview-surface [data-testid="stDataFrame"] > div {
+            background: #fbfdfb !important;
+            color: #21352a !important;
+            border-color: rgba(106, 136, 112, 0.16) !important;
+            box-shadow: none !important;
+        }
+        .overview-surface [data-testid="stDataEditor"] th,
+        .overview-surface [data-testid="stDataFrame"] th,
+        .overview-surface [data-testid="stDataEditor"] td,
+        .overview-surface [data-testid="stDataFrame"] td,
+        .overview-surface [data-testid="stDataEditor"] div,
+        .overview-surface [data-testid="stDataFrame"] div {
+            color: #294234 !important;
+        }
+        .overview-surface [data-testid="stDataEditor"] th,
+        .overview-surface [data-testid="stDataFrame"] th {
+            background: #eef4ee !important;
+            border-bottom: 1px solid rgba(106, 136, 112, 0.14) !important;
         }
         </style>
+        <div class="overview-surface">
         """
     )
 
-    st.markdown('<div class="camera-search-bar-label">Keyword Search</div>', unsafe_allow_html=True)
+    render_health_section_intro(
+        "Health Overview",
+        "Use the dashboard to scan current state, then work from the inventory below for lookups, spot checks, and focused filtering.",
+    )
 
-    search_term = st.text_input(
+    render_operations_snapshot(
+        devices_subset=filtered_devices,
+        tickets_subset=tickets_df,
+        retention_enabled=retention_available,
+    )
 
-        "Keyword Search",
+    scope_labels = {
+        "unique": f"Devices ({df_devices['physical_key'].nunique():,})",
+        "export": f"All Views ({len(df_views):,})",
+        "avigilon": f"Avigilon ({len(df_devices[df_devices['Brand'] == 'Avigilon']):,})",
+        "axis": f"Axis ({len(df_devices[df_devices['Brand'] == 'Axis']):,})",
+        "other": f"Other ({len(df_devices[df_devices['Brand'].isin(['Other', 'Unknown'])]):,})",
+    }
+    scope_cols = st.columns(5, gap="small")
+    for scope_col, scope_key in zip(scope_cols, ["unique", "export", "avigilon", "axis", "other"]):
+        with scope_col:
+            is_active = st.session_state.get("health_scope_mode", "unique") == scope_key
+            if st.button(
+                scope_labels[scope_key],
+                key=f"overview_scope_tab_{scope_key}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state["health_scope_mode"] = scope_key
+                on_metric_click(scope_key)
 
-        key="overview_camera_keyword_search",
+    st.markdown("### Inventory")
 
-        placeholder="Search keyword in camera list...",
+    controls_left, controls_right = st.columns([0.84, 0.16], gap="small")
+    with controls_left:
+        st.markdown('<div class="camera-search-bar-label">Inventory Search</div>', unsafe_allow_html=True)
+        search_term = st.text_input(
+            "Keyword Search",
+            key="overview_camera_keyword_search",
+            placeholder="Search by camera name, location, IP, ticket, or any visible field...",
+            label_visibility="collapsed",
+        ).strip()
 
-        label_visibility="collapsed",
-
-    ).strip()
+    overview_all_cols = [
+        c for c in [
+            "Health", "Device Name Base", "key", "IP Address", "Location", "Ping Status", "Ticket ID",
+            "Primary Connection", "Secondary Connection", "Error Flags", "Servers", "disposition", "notes"
+        ] if c in all_df.columns
+    ]
+    overview_default_cols = [
+        c for c in [
+            "Health", "Device Name Base", "key", "IP Address", "Location", "Ping Status", "Ticket ID"
+        ] if c in overview_all_cols
+    ]
+    with controls_right:
+        st.markdown('<div class="camera-search-bar-label">Columns</div>', unsafe_allow_html=True)
+        with st.popover("Columns", use_container_width=True):
+            selected_extra_cols = []
+            for col_name in overview_all_cols:
+                visible_label = AGGRID_HEADER_LABELS.get(col_name, col_name)
+                checked = st.checkbox(
+                    visible_label,
+                    key=f"overview_col_toggle_{col_name}",
+                    value=(col_name in overview_default_cols),
+                )
+                if checked:
+                    selected_extra_cols.append(col_name)
 
     filtered_table_df = all_df
 
     if search_term:
-
         search_mask = (
-
             all_df.fillna("")
-
             .astype(str)
-
             .apply(lambda row: row.str.contains(search_term, case=False, regex=False).any(), axis=1)
-
         )
-
         filtered_table_df = all_df.loc[search_mask].copy()
-
         st.caption(f"{len(filtered_table_df):,} cameras matched '{search_term}'.")
 
-    render_mobile_filtered_cameras_table(filtered_table_df)
+    overview_display_order = [
+        "Health",
+        "Device Name Base",
+        "key",
+        "IP Address",
+        "Location",
+        "Ping Status",
+        "Ticket ID",
+        "Primary Connection",
+        "Secondary Connection",
+        "Error Flags",
+        "Servers",
+        "disposition",
+        "notes",
+    ]
+    overview_visible_cols = [c for c in selected_extra_cols if c in filtered_table_df.columns]
+    if not overview_visible_cols:
+        overview_visible_cols = [c for c in overview_default_cols if c in filtered_table_df.columns]
+    overview_table_df = filtered_table_df[[c for c in overview_display_order if c in overview_visible_cols]].copy()
+
+    overview_column_config = {
+        "Health": st.column_config.TextColumn("Health", width="small"),
+        "Device Name Base": st.column_config.TextColumn("Camera Name", width="large"),
+        "key": st.column_config.TextColumn("MAC Address", width="medium"),
+        "IP Address": st.column_config.TextColumn("IP Address", width="small"),
+        "Location": st.column_config.TextColumn("Location", width="medium"),
+        "Ping Status": st.column_config.TextColumn("Ping Status", width="medium"),
+        "Ticket ID": st.column_config.TextColumn("Ticket ID", width="small"),
+        "Primary Connection": st.column_config.TextColumn("Primary Connection", width="large"),
+        "Secondary Connection": st.column_config.TextColumn("Secondary Connection", width="large"),
+        "Error Flags": st.column_config.TextColumn("Errors", width="large"),
+        "Servers": st.column_config.TextColumn("Servers", width="large"),
+        "disposition": st.column_config.TextColumn("Disposition", width="medium"),
+        "notes": st.column_config.TextColumn("Notes", width="large"),
+    }
+
+    st.data_editor(
+        overview_table_df,
+        width="stretch",
+        height=560,
+        hide_index=True,
+        disabled=list(overview_table_df.columns),
+        column_config={k: v for k, v in overview_column_config.items() if k in overview_table_df.columns},
+        key="overview_table_light",
+    )
+
+    render_html("</div>")
 
 
 
@@ -12561,7 +12283,10 @@ def render_overview_section() -> None:
 
 def render_action_required_tab():
 
-    st.subheader("Cameras Requiring Attention")
+    render_health_section_intro(
+        "Action Queue",
+        "Focus on the cameras most likely to need action now: offline devices, error-heavy rows, and cameras with unresolved visibility or ping concerns.",
+    )
 
     st.caption("Prioritized by score: strict offline, not visible, hard error flags, or offline-visible devices that are not confirmed pingable.")
 
@@ -12659,7 +12384,7 @@ def render_action_required_tab():
 
     if pending_ping_count > 0:
 
-        st.caption(f"Pinging cameras... {pending_ping_count} remaining (updating Action Required tab only)")
+        st.caption(f"Pinging cameras... {pending_ping_count} remaining (updating this Action Queue view only)")
 
     st.caption("Create help tickets or acknowledge pending items from this filtered action queue.")
 
@@ -12683,8 +12408,11 @@ if selected_workspace == "Health Status":
             st.info("Retention data is not available in the current loaded export.")
 elif selected_workspace == "Ticket Related":
     if selected_area == "Open Tickets":
-        st.subheader("Queued / Open Tickets")
-        st.caption("Active ticket queue tracked until resolved, removed, or replaced.")
+        render_health_section_intro(
+            "Queued / Open Tickets",
+            "Review and update active ticket records until they are resolved, removed, or replaced.",
+            eyebrow="Ticket Related",
+        )
         render_tickets_editor(tickets_editor_df)
     else:
         render_ticket_response_assistant()

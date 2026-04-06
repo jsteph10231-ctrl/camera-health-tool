@@ -748,8 +748,8 @@ def _sync_multi_select_state(key: str, options: list[str]) -> list[str]:
 
 
 def render_builder() -> None:
-    st.subheader("Camera Installation Builder")
-    st.caption("Workbook-driven Avigilon installation package builder. Swap the workbook later by changing the path or uploading a newer .xlsx file.")
+    st.markdown("## Camera Installation Builder")
+    st.caption("Build workbook-backed Avigilon installation packages in four steps: choose a workbook, choose a camera, choose an install scenario, then review the generated BOM.")
 
     if st.session_state.get("cib_reset_pending"):
         reset_builder_state()
@@ -760,10 +760,11 @@ def render_builder() -> None:
     st.session_state.setdefault("cib_required_only", False)
     st.session_state.setdefault("cib_debug_mode", False)
 
-    left_col, right_col = st.columns([1.05, 1.45], gap="large")
+    left_col, right_col = st.columns([1.08, 1.32], gap="medium")
 
     with left_col:
-        st.markdown("##### Workbook Source")
+        st.markdown("### Step 1 · Workbook")
+        st.caption("Choose the ordering workbook that powers the builder. Repo-local `data/` is the best long-term location on this machine.")
         uploaded_workbook = st.file_uploader(
             "Upload workbook",
             type=["xlsx"],
@@ -774,6 +775,11 @@ def render_builder() -> None:
         workbook_bytes, workbook_label, source_messages = _load_workbook_source(uploaded_workbook, workbook_path)
         for message in source_messages:
             st.error(message)
+
+        if workbook_bytes is None:
+            st.info(
+                "Builder workbook not loaded yet. Upload the Avigilon ordering workbook or point the workbook path at a local .xlsx file to enable this feature."
+            )
 
         catalog: dict[str, Any] = {}
         if workbook_bytes is not None:
@@ -794,6 +800,7 @@ def render_builder() -> None:
             bundles_df = catalog.get("bundles_df", pd.DataFrame())
 
             if not models_df.empty and not bundles_df.empty:
+                st.markdown("### Step 2 · Camera")
                 families = sorted(family for family in models_df["family"].dropna().astype(str).unique().tolist() if family)
                 selected_family = _sync_single_select_state("cib_family", families)
                 selected_family = st.selectbox("Camera family", options=[""] + families, key="cib_family")
@@ -807,6 +814,7 @@ def render_builder() -> None:
                 _sync_single_select_state("cib_model", model_options)
                 selected_model = st.selectbox("Camera model", options=[""] + model_options, key="cib_model")
 
+                st.markdown("### Step 3 · Installation scenario")
                 scenarios_scope = filter_bundle_candidates(catalog, family=selected_family, model_number=selected_model)
                 scenario_options = (
                     sorted(scenarios_scope["scenario"].dropna().astype(str).unique().tolist())
@@ -864,6 +872,8 @@ def render_builder() -> None:
                 ) if not tag_scope.empty else FILTER_TAGS
                 _sync_multi_select_state("cib_tags", tag_options)
                 st.multiselect("Optional filters", options=tag_options, key="cib_tags")
+
+                st.markdown("### Step 4 · Output options")
                 st.number_input("Camera quantity", min_value=1, step=1, key="cib_quantity")
                 st.checkbox("Show only required parts in results", key="cib_required_only")
                 st.checkbox("Debug / provenance mode", key="cib_debug_mode")
@@ -900,8 +910,12 @@ def render_builder() -> None:
                     "Detected workbook sheets: "
                     + ", ".join(f"{role} -> {sheet_name or 'not found'}" for role, sheet_name in catalog.get("sheet_roles", {}).items())
                 )
+            else:
+                st.info("The workbook loaded, but the required camera model or mounting bundle sheets were not detected yet.")
 
     with right_col:
+        st.markdown("### Generated package")
+        st.caption("Review the workbook-backed parts list, then copy or export the package details.")
         result = st.session_state.get("cib_result")
         result_context = st.session_state.get("cib_result_context") or {}
         if not result:
@@ -920,6 +934,7 @@ def render_builder() -> None:
 
         camera_summary = result.get("camera_summary", {}) or {}
         if camera_summary:
+            st.caption("Package summary")
             info_col_1, info_col_2 = st.columns(2)
             with info_col_1:
                 st.markdown("##### Camera Selection")
@@ -933,6 +948,7 @@ def render_builder() -> None:
                 st.write(f"Environment: {_clean(camera_summary.get('environment', ''))}")
                 st.write(f"Base Mount: {_clean(camera_summary.get('base_mount', ''))}")
                 st.write(f"Camera Qty: {int(st.session_state.get('cib_quantity', 1) or 1)}")
+            st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
 
         bom_df = result.get("bom_df", pd.DataFrame())
         if isinstance(bom_df, pd.DataFrame) and not bom_df.empty:
@@ -940,6 +956,7 @@ def render_builder() -> None:
             if st.session_state.get("cib_required_only", False):
                 display_df = display_df[display_df["Required/Optional"].eq("Required")].reset_index(drop=True)
 
+            st.caption("Primary output")
             st.markdown("##### Final Bill Of Materials")
             st.dataframe(
                 display_df,
@@ -947,19 +964,22 @@ def render_builder() -> None:
                 use_container_width=True,
                 column_config={"Required Qty": st.column_config.NumberColumn("Required Qty", step=1, format="%d")},
             )
+            st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
             required_df = result.get("required_df", pd.DataFrame())
             optional_df = result.get("optional_df", pd.DataFrame())
-            if isinstance(required_df, pd.DataFrame) and not required_df.empty:
-                st.markdown("##### Required Parts")
-                st.dataframe(required_df, hide_index=True, use_container_width=True)
-            if isinstance(optional_df, pd.DataFrame) and not optional_df.empty:
-                st.markdown("##### Optional Parts")
-                st.dataframe(optional_df, hide_index=True, use_container_width=True)
+            details_col, exports_col = st.columns([0.68, 0.32], gap="large")
+            with details_col:
+                if isinstance(required_df, pd.DataFrame) and not required_df.empty:
+                    st.markdown("##### Required Parts")
+                    st.dataframe(required_df, hide_index=True, use_container_width=True)
+                if isinstance(optional_df, pd.DataFrame) and not optional_df.empty:
+                    st.markdown("##### Optional Parts")
+                    st.dataframe(optional_df, hide_index=True, use_container_width=True)
 
             export_text = _format_export_text(camera_summary, bom_df, result.get("notes", []))
-            _render_copy_button(export_text, "cib")
-            export_col_1, export_col_2 = st.columns(2)
-            with export_col_1:
+            with exports_col:
+                st.caption("Export")
+                _render_copy_button(export_text, "cib")
                 st.download_button(
                     "Download BOM CSV",
                     data=bom_df.to_csv(index=False).encode("utf-8"),
@@ -967,7 +987,6 @@ def render_builder() -> None:
                     mime="text/csv",
                     use_container_width=True,
                 )
-            with export_col_2:
                 st.download_button(
                     "Download Notes TXT",
                     data=export_text.encode("utf-8"),
