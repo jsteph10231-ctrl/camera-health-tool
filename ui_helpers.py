@@ -26,7 +26,7 @@ def render_health_section_intro(title: str, subtitle: str, eyebrow: str = "Healt
             box-shadow: none;
         }}
         .health-intro-eyebrow {{
-            color: #8fa0b3;
+            color: #6b806f;
             font-size: 0.64rem;
             font-weight: 700;
             letter-spacing: 0.12em;
@@ -34,14 +34,14 @@ def render_health_section_intro(title: str, subtitle: str, eyebrow: str = "Healt
             margin-bottom: 0.22rem;
         }}
         .health-intro-title {{
-            color: #f3f6fb;
+            color: #24362b;
             font-size: 1rem;
             font-weight: 700;
             line-height: 1.18;
             margin-bottom: 0.2rem;
         }}
         .health-intro-subtitle {{
-            color: #95a3b3;
+            color: #627467;
             font-size: 0.84rem;
             line-height: 1.4;
             max-width: 56rem;

@@ -36,6 +36,15 @@ import streamlit as st  # type: ignore[import-untyped]
 
 import streamlit.components.v1 as components  # type: ignore[import-untyped]
 from ui_helpers import render_health_section_intro
+from overview_helpers import (
+    OVERVIEW_GREENS,
+    render_overview_chart_card,
+    render_overview_header,
+    render_overview_metric_cards,
+    render_overview_section_kicker,
+    render_overview_table_header,
+    render_overview_theme,
+)
 try:
     from st_aggrid import (  # type: ignore[import-untyped]
         AgGrid,
@@ -69,19 +78,8 @@ def render_html(markup: str) -> None:
     st.markdown(cleaned_markup, unsafe_allow_html=True)
 
 
-# Load tiger eye as favicon (PIL Image so Streamlit renders it as a real icon)
-
-try:
-
-    from PIL import Image as _PILImage  # type: ignore[import-untyped]
-
-    _favicon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tiger_eye.png")
-
-    _favicon = _PILImage.open(_favicon_path)
-
-except Exception:
-
-    _favicon = "\U0001F42F"  # fallback if file missing or PIL unavailable
+# Use a dome camera favicon; the animated sweep variant is injected below.
+_favicon = "\U0001F4F9"
 
 
 
@@ -91,27 +89,132 @@ st.set_page_config(page_title="LSU Camera Health Tool", layout="wide", page_icon
 
 # Theme preference lives in session state and is exposed from a compact overflow menu.
 
-if "theme_dark_mode" not in st.session_state:
+THEME_VARIANTS: dict[str, dict[str, str]] = {
+    "Sage": {
+        "primary": "#547c5d",
+        "background": "#f5f4ec",
+        "secondary_bg": "#eff3eb",
+        "text": "#24362b",
+        "app_bg": "#f5f4ec",
+        "app_bg_soft": "#ebeede",
+        "surface": "#ffffff",
+        "surface_2": "#fbfbf8",
+        "surface_3": "#f4f5f1",
+        "cell_shell": "#e7ebe3",
+        "cell": "#fffefb",
+        "cell_alt": "#f7f8f4",
+        "cell_hover": "#eff2ec",
+        "cell_header": "#dde4d7",
+        "border": "rgba(100, 113, 102, 0.22)",
+        "border_strong": "rgba(70, 92, 76, 0.55)",
+        "text_main": "#25342b",
+        "text_muted": "#67756b",
+        "accent": "#627a69",
+        "accent_strong": "#547c5d",
+        "accent_soft": "#edf1ea",
+        "accent_soft_2": "#f0f3ee",
+        "accent_text": "#2d4936",
+        "accent_hover": "#234031",
+        "focus_ring": "rgba(84, 124, 93, 0.14)",
+        "focus_border": "rgba(84, 124, 93, 0.40)",
+        "sidebar_bg_top": "#f1f5ee",
+        "sidebar_bg_bottom": "#e6eee1",
+        "sidebar_hover": "#edf3ea",
+        "sidebar_selected": "#e3ece0",
+        "sidebar_button_top": "#ffffff",
+        "sidebar_button_bottom": "#f6f8f3",
+        "sidebar_button_border": "rgba(95, 119, 101, 0.34)",
+        "sidebar_button_text": "#32463a",
+        "sidebar_button_hover_top": "#ffffff",
+        "sidebar_button_hover_bottom": "#edf3ea",
+        "sidebar_text": "#304239",
+        "sidebar_text_muted": "#6b786e",
+        "sidebar_accent": "#7f9a82",
+        "sidebar_accent_strong": "#547c5d",
+        "sidebar_panel_top": "#ffffff",
+        "sidebar_panel_bottom": "#f7faf4",
+        "sidebar_panel_border": "rgba(95, 119, 101, 0.24)",
+        "header_bg": "rgba(244, 248, 241, 0.96)",
+        "placeholder": "#7a8b7e",
+        "tab_shadow": "#6b8f73",
+        "scrollbar": "#a7bcac",
+        "scrollbar_hover": "#6f9078",
+        "banner_line_start": "#9bb7a0",
+        "banner_line_mid": "#6f9078",
+        "banner_line_end": "#9bb7a0",
+    },
+    "Uni": {
+        "primary": "#1d2b46",
+        "background": "#f7f8fb",
+        "secondary_bg": "#eff2f7",
+        "text": "#223047",
+        "app_bg": "#f7f8fb",
+        "app_bg_soft": "#eef2f7",
+        "surface": "#ffffff",
+        "surface_2": "#fbfcff",
+        "surface_3": "#f1f4f8",
+        "cell_shell": "#e4e9f0",
+        "cell": "#ffffff",
+        "cell_alt": "#f6f8fc",
+        "cell_hover": "#edf2f8",
+        "cell_header": "#d8e0ec",
+        "border": "rgba(72, 88, 112, 0.15)",
+        "border_strong": "rgba(44, 60, 89, 0.24)",
+        "text_main": "#223047",
+        "text_muted": "#66758a",
+        "accent": "#31476f",
+        "accent_strong": "#1d2b46",
+        "accent_soft": "#eaf0f7",
+        "accent_soft_2": "#eef3f9",
+        "accent_text": "#2a3c5d",
+        "accent_hover": "#172238",
+        "focus_ring": "rgba(29, 43, 70, 0.14)",
+        "focus_border": "rgba(29, 43, 70, 0.40)",
+        "sidebar_bg_top": "#fafbfe",
+        "sidebar_bg_bottom": "#edf1f7",
+        "sidebar_hover": "#eef3f9",
+        "sidebar_selected": "#e4ebf4",
+        "sidebar_button_top": "#ffffff",
+        "sidebar_button_bottom": "#f1f4f8",
+        "sidebar_button_border": "rgba(72, 88, 112, 0.15)",
+        "sidebar_button_text": "#2a3c5d",
+        "sidebar_button_hover_top": "#f6f8fc",
+        "sidebar_button_hover_bottom": "#eaf0f7",
+        "sidebar_text": "#223047",
+        "sidebar_text_muted": "#66758a",
+        "sidebar_accent": "#31476f",
+        "sidebar_accent_strong": "#1d2b46",
+        "sidebar_panel_top": "#ffffff",
+        "sidebar_panel_bottom": "#f7f9fc",
+        "sidebar_panel_border": "rgba(72, 88, 112, 0.18)",
+        "header_bg": "rgba(244, 247, 252, 0.96)",
+        "placeholder": "#79879b",
+        "tab_shadow": "#31476f",
+        "scrollbar": "#a4b1c3",
+        "scrollbar_hover": "#586c8b",
+        "banner_line_start": "#b9c6d8",
+        "banner_line_mid": "#1d2b46",
+        "banner_line_end": "#b9c6d8",
+    },
+}
 
-    st.session_state.theme_dark_mode = False
+if "app_theme_variant" not in st.session_state:
+    st.session_state.app_theme_variant = "Sage"
 
-st.session_state.theme_dark_mode = False
-theme_dark_mode = False
+theme_variant = str(st.session_state.get("app_theme_variant", "Sage"))
+if theme_variant not in THEME_VARIANTS:
+    theme_variant = "Sage"
+    st.session_state.app_theme_variant = theme_variant
 
-
+active_theme = THEME_VARIANTS[theme_variant]
+theme_dark_mode = True
 
 theme_config = {
-
-    "theme.base": "dark" if theme_dark_mode else "light",
-
-    "theme.primaryColor": "#FDD023" if theme_dark_mode else "#461D7C",
-
-    "theme.backgroundColor": "#12161c" if theme_dark_mode else "#FFFFFF",
-
-    "theme.secondaryBackgroundColor": "#1b222c" if theme_dark_mode else "#F7F4FB",
-
-    "theme.textColor": "#E7ECF3" if theme_dark_mode else "#24183D",
-
+    "theme.base": "light",
+    "theme.primaryColor": active_theme["primary"],
+    "theme.backgroundColor": active_theme["background"],
+    "theme.secondaryBackgroundColor": active_theme["secondary_bg"],
+    "theme.textColor": active_theme["text"],
 }
 
 for _theme_key, _theme_value in theme_config.items():
@@ -430,7 +533,7 @@ div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
 
     background-color: #2D1259 !important;
 
-    border: 2px dashed #7a52b5 !important;
+    border: 2px dashed rgba(84, 124, 93, 0.28) !important;
 
     border-radius: 8px !important;
 
@@ -438,7 +541,7 @@ div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
 
 [data-testid="stFileUploader"]:hover {
 
-    border-color: #FDD023 !important;
+    border-color: rgba(98, 143, 108, 0.38) !important;
 
 }
 
@@ -448,680 +551,15 @@ div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 
-::-webkit-scrollbar-track { background: #1a0a36; }
+::-webkit-scrollbar-track { background: #edf4eb; }
 
-::-webkit-scrollbar-thumb { background: #461D7C; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #97b39d; border-radius: 4px; }
 
-::-webkit-scrollbar-thumb:hover { background: #FDD023; }
+::-webkit-scrollbar-thumb:hover { background: #5d8667; }
 
 </style>
 
 """
-
-st.markdown("""
-
-<style>
-
-:root {
-
-    --lsu-purple: #461D7C;
-
-    --lsu-gold: #FDD023;
-
-    --warning: #d49a00;
-
-    --bg: #12161c;
-
-    --panel: #1b222c;
-
-    --panel-2: #222b36;
-
-    --panel-3: #2a3442;
-
-    --border: #2d3846;
-
-    --text: #e7ecf3;
-
-    --muted: #aab4c3;
-
-    --accent: #6b4ea2;
-
-    --accent-2: #5876a8;
-
-    --gold: #d6b24c;
-
-    --warm: #d9785a;
-
-    --success: #2f7d57;
-
-    --success-bg: #16281f;
-
-    --danger: #b24a4a;
-
-    --danger-bg: #2b1719;
-
-}
-
-
-
-[data-testid="stAppViewContainer"],
-
-[data-testid="stMain"] {
-
-    background:
-
-        radial-gradient(circle at top right, rgba(107, 78, 162, 0.12), transparent 32%),
-
-        radial-gradient(circle at top left, rgba(88, 118, 168, 0.08), transparent 28%),
-
-        var(--bg) !important;
-
-}
-
-
-
-[data-testid="stSidebar"] {
-
-    background: linear-gradient(180deg, #171d26 0%, #11161d 100%) !important;
-
-    border-right: 2px solid rgba(214, 178, 76, 0.32) !important;
-
-}
-
-[data-testid="stSidebar"] * {
-
-    color: var(--text) !important;
-
-}
-
-[data-testid="stSidebar"] input,
-
-[data-testid="stSidebar"] textarea {
-
-    background-color: var(--panel-2) !important;
-
-    color: var(--text) !important;
-
-    border: 2px solid var(--border) !important;
-
-    border-radius: 10px !important;
-
-}
-
-[data-testid="stSidebar"] .stButton > button {
-
-    background: linear-gradient(
-
-        270deg,
-
-        var(--accent) 0%,
-
-        var(--accent-2) 40%,
-
-        var(--accent) 80%
-
-    ) !important;
-
-    background-size: 300% 100% !important;
-
-    color: #f7f9fc !important;
-
-    border: 2px solid rgba(214, 178, 76, 0.35) !important;
-
-    transition: all 0.25s ease, transform 0.18s ease !important;
-
-    border-radius: 10px !important;
-
-}
-
-[data-testid="stSidebar"] .stButton > button:hover {
-
-    filter: brightness(1.15) !important;
-
-    border-color: rgba(214, 178, 76, 0.75) !important;
-
-    transform: scale(1.02) !important;
-
-    box-shadow: 0 4px 14px rgba(107, 78, 162, 0.5) !important;
-
-}
-
-[data-testid="stSidebar"] .stButton > button:focus-visible {
-
-    outline: 3px solid var(--lsu-gold) !important;
-
-    outline-offset: 2px !important;
-
-}
-
-[data-testid="stSidebar"] .stButton > button * {
-
-    color: #f7f9fc !important;
-
-}
-
-[data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type {
-
-    margin: 0 0 10px 0 !important;
-
-    padding: 2px 0 10px 0 !important;
-
-    border-bottom: 1px solid rgba(214, 178, 76, 0.2) !important;
-
-}
-
-[data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type > div:first-of-type p {
-
-    font-size: 0.82rem !important;
-
-    font-weight: 700 !important;
-
-    letter-spacing: 0.04em !important;
-
-    text-transform: uppercase !important;
-
-    color: #dfe6f0 !important;
-
-}
-
-[data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type > div:nth-of-type(2) {
-
-    transform: scale(0.92) !important;
-
-}
-
-
-
-header[data-testid="stHeader"] {
-
-    background: rgba(18, 22, 28, 0.92) !important;
-
-    border-bottom: 2px solid rgba(214, 178, 76, 0.22) !important;
-
-}
-
-
-
-html, body, [class*="css"] {
-
-    color: var(--text) !important;
-
-}
-
-h1, h2, h3 {
-
-    color: var(--text) !important;
-
-    letter-spacing: 0.3px !important;
-
-}
-
-[data-testid="stMain"] p,
-
-[data-testid="stMain"] label,
-
-[data-testid="stMain"] .stMarkdown {
-
-    color: var(--muted);
-
-}
-
-
-
-[data-testid="stTitle"] {
-
-    color: var(--text) !important;
-
-    border-bottom: 1px solid var(--border) !important;
-
-}
-
-
-
-[data-testid="stMetric"] {
-
-    background: linear-gradient(180deg, rgba(34, 43, 54, 0.96), rgba(27, 34, 44, 0.96)) !important;
-
-    border: 2px solid rgba(214, 178, 76, 0.18) !important;
-
-    border-radius: 12px !important;
-
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 6px 18px rgba(4, 8, 14, 0.25);
-
-}
-
-[data-testid="stMetricLabel"] > div {
-
-    color: #d7c9f2 !important;
-
-}
-
-[data-testid="stMetricValue"] > div {
-
-    color: var(--text) !important;
-
-}
-
-
-
-[data-testid="stMain"] .stButton > button {
-
-    background: linear-gradient(180deg, rgba(49, 60, 78, 0.96), rgba(34, 44, 58, 0.96)) !important;
-
-    color: #f7f9fc !important;
-
-    border: 1px solid rgba(214, 178, 76, 0.24) !important;
-
-    border-radius: 12px !important;
-
-    min-height: 46px !important;
-
-    padding: 0.72rem 0.95rem !important;
-
-    transition: all 0.22s ease, transform 0.18s ease, box-shadow 0.22s ease !important;
-
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 18px rgba(7, 14, 24, 0.24) !important;
-
-}
-
-[data-testid="stMain"] .stButton > button * {
-
-    color: #f7f9fc !important;
-
-}
-
-[data-testid="stMain"] .stButton > button:hover {
-
-    background: linear-gradient(180deg, rgba(61, 74, 96, 0.98), rgba(40, 52, 69, 0.98)) !important;
-
-    border-color: rgba(214, 178, 76, 0.55) !important;
-
-    transform: translateY(-2px) !important;
-
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 24px rgba(107, 78, 162, 0.24) !important;
-
-}
-
-[data-testid="stMain"] .stButton > button:hover * {
-
-    color: #f7f9fc !important;
-
-}
-
-[data-testid="stMain"] .stButton > button:active {
-
-    transform: translateY(0) scale(0.98) !important;
-
-    filter: brightness(0.95) !important;
-
-}
-
-[data-testid="stMain"] .stButton > button:focus-visible {
-
-    outline: 3px solid var(--lsu-gold) !important;
-
-    outline-offset: 2px !important;
-
-}
-
-
-
-[data-testid="stMain"] input[type="text"],
-
-[data-testid="stMain"] textarea,
-
-[data-testid="stSelectbox"] > div > div,
-
-[data-testid="stMultiSelect"] > div > div {
-
-    background: linear-gradient(180deg, rgba(34, 43, 54, 0.98), rgba(27, 34, 44, 0.98)) !important;
-
-    color: var(--text) !important;
-
-    border: 1px solid rgba(107, 78, 162, 0.32) !important;
-
-    border-radius: 12px !important;
-
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 20px rgba(5, 10, 18, 0.16) !important;
-
-}
-
-[data-testid="stMain"] input[type="text"]:focus,
-
-[data-testid="stMain"] textarea:focus {
-
-    border-color: var(--lsu-gold) !important;
-
-    box-shadow: 0 0 0 3px rgba(214, 178, 76, 0.22) !important;
-
-}
-
-div[data-testid="stTextInput"] label p {
-
-    color: #dfe6f0 !important;
-
-    font-weight: 700 !important;
-
-    letter-spacing: 0.35px !important;
-
-    text-transform: uppercase !important;
-
-    font-size: 0.8rem !important;
-
-}
-
-div[data-testid="stTextInput"] input {
-
-    min-height: 48px !important;
-
-}
-
-div[data-testid="stTextInput"] input::placeholder {
-
-    color: #a5b0bf !important;
-
-    opacity: 1 !important;
-
-}
-
-[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
-
-    background-color: rgba(107, 78, 162, 0.2) !important;
-
-    color: #d7c9f2 !important;
-
-    border: 1px solid rgba(107, 78, 162, 0.45) !important;
-
-    border-radius: 999px !important;
-
-}
-
-[data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
-
-    color: #d7c9f2 !important;
-
-    fill: #d7c9f2 !important;
-
-}
-
-
-
-[data-testid="stCheckbox"] label {
-
-    color: var(--text) !important;
-
-}
-
-
-
-[data-testid="stDataFrame"] {
-
-    padding: 6px !important;
-
-    border-radius: 14px !important;
-
-    background: linear-gradient(180deg, rgba(45, 18, 89, 0.92), rgba(26, 10, 54, 0.94)) !important;
-
-    border: 1px solid rgba(253, 208, 35, 0.30) !important;
-
-    box-shadow: 0 14px 28px rgba(10, 4, 20, 0.30) !important;
-
-}
-
-[data-testid="stDataFrame"] > div {
-
-    border: 1px solid rgba(253, 208, 35, 0.30) !important;
-
-    border-radius: 12px !important;
-
-    background: rgba(32, 15, 66, 0.94) !important;
-
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
-
-}
-
-[data-testid="stDataFrame"] th {
-
-    background: #461D7C !important;
-
-    color: #FDD023 !important;
-
-    border-bottom: 1px solid rgba(253, 208, 35, 0.42) !important;
-
-}
-
-[data-testid="stDataFrame"] tr:nth-child(even) {
-
-    background-color: rgba(253, 208, 35, 0.05) !important;
-
-}
-
-[data-testid="stDataFrame"] tr:hover {
-
-    background-color: rgba(253, 208, 35, 0.16) !important;
-
-}
-
-
-
-[data-testid="stDataFrame"] [role="toolbar"],
-
-[data-testid="stDataFrame"] [class*="toolbar"],
-
-[data-testid="stDataFrame"] [class*="menu"] {
-
-    background: transparent !important;
-
-    border: 0 !important;
-
-    box-shadow: none !important;
-
-}
-
-[data-testid="stDataFrame"] button,
-
-[data-testid="stDataFrame"] [role="button"] {
-
-    background: rgba(70, 29, 124, 0.94) !important;
-
-    border: 1px solid rgba(253, 208, 35, 0.34) !important;
-
-    color: #FDD023 !important;
-
-    border-radius: 9px !important;
-
-    box-shadow: none !important;
-
-}
-
-[data-testid="stDataFrame"] button:hover,
-
-[data-testid="stDataFrame"] [role="button"]:hover {
-
-    background: rgba(95, 62, 152, 0.96) !important;
-
-    border-color: rgba(253, 208, 35, 0.92) !important;
-
-    color: #fff7d1 !important;
-
-}
-
-[data-testid="stDataFrame"] button svg,
-
-[data-testid="stDataFrame"] [role="button"] svg {
-
-    fill: #FDD023 !important;
-
-    stroke: #FDD023 !important;
-
-}
-
-
-
-div[data-testid="stAlert"][data-baseweb="notification"][kind="positive"] {
-
-    background-color: var(--success-bg) !important;
-
-    border-left: 4px solid var(--success) !important;
-
-}
-
-div[data-testid="stAlert"][data-baseweb="notification"][kind="negative"] {
-
-    background-color: var(--danger-bg) !important;
-
-    border-left: 4px solid var(--danger) !important;
-
-}
-
-
-
-[data-testid="stExpander"] {
-
-    background-color: rgba(27, 34, 44, 0.96) !important;
-
-    border: 1px solid var(--border) !important;
-
-    border-radius: 10px !important;
-
-}
-
-[data-testid="stExpander"] summary {
-
-    color: var(--text) !important;
-
-}
-
-[data-testid="stExpander"] summary:focus-visible {
-
-    outline: 3px solid var(--lsu-gold) !important;
-
-    outline-offset: 2px !important;
-
-    border-radius: 6px !important;
-
-}
-
-
-
-button[data-baseweb="tab"] {
-
-    color: #aeb8c8 !important;
-
-    border: 1px solid rgba(214, 178, 76, 0.12) !important;
-
-    border-bottom: 0 !important;
-
-    background: linear-gradient(180deg, rgba(24, 34, 51, 0.86), rgba(19, 28, 40, 0.9)) !important;
-
-    border-radius: 12px 12px 0 0 !important;
-
-    padding: 0.62rem 1rem !important;
-
-    margin-right: 0.28rem !important;
-
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
-
-}
-
-button[data-baseweb="tab"][aria-selected="true"] {
-
-    color: #f4f7fb !important;
-
-    border-color: rgba(214, 178, 76, 0.42) !important;
-
-    background: linear-gradient(180deg, rgba(41, 55, 77, 0.98), rgba(28, 40, 57, 0.98)) !important;
-
-    box-shadow: inset 0 -3px 0 var(--lsu-gold), 0 8px 18px rgba(7, 14, 24, 0.16) !important;
-
-}
-
-button[data-baseweb="tab"]:nth-of-type(2) {
-
-    color: #d8b9ae !important;
-
-    border-color: rgba(217, 120, 90, 0.16) !important;
-
-}
-
-button[data-baseweb="tab"]:nth-of-type(2)[aria-selected="true"] {
-
-    color: #fff2eb !important;
-
-    border-color: rgba(217, 120, 90, 0.38) !important;
-
-    background: linear-gradient(180deg, rgba(66, 38, 41, 0.92), rgba(42, 28, 38, 0.95)) !important;
-
-    box-shadow: inset 0 -3px 0 var(--warm), 0 8px 18px rgba(20, 10, 10, 0.18) !important;
-
-}
-
-button[data-baseweb="tab"]:focus-visible {
-
-    outline: 3px solid var(--lsu-gold) !important;
-
-    outline-offset: 2px !important;
-
-}
-
-
-
-[data-testid="stHeading"] h2,
-
-[data-testid="stHeading"] h3 {
-
-    color: var(--text) !important;
-
-    border-left: 4px solid var(--accent) !important;
-
-    padding-left: 12px !important;
-
-    margin-top: 0.35rem !important;
-
-    letter-spacing: 0.2px !important;
-
-}
-
-
-
-[data-testid="stCaptionContainer"] {
-
-    color: var(--muted) !important;
-
-}
-
-
-
-[data-testid="stFileUploader"] {
-
-    background-color: rgba(27, 34, 44, 0.96) !important;
-
-    border: 2px dashed var(--border) !important;
-
-    border-radius: 10px !important;
-
-}
-
-[data-testid="stFileUploader"]:hover {
-
-    border-color: var(--accent) !important;
-
-}
-
-
-
-::-webkit-scrollbar-track { background: #141a21 !important; }
-
-::-webkit-scrollbar-thumb { background: #334154 !important; }
-
-::-webkit-scrollbar-thumb:hover { background: var(--accent) !important; }
-
-
-
-</style>
-
-""", unsafe_allow_html=True)
-
 
 
 # ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ LSU branded page header (tiger eye logo) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
@@ -1134,7 +572,7 @@ try:
 
         _tiger_b64 = _b64.b64encode(_f.read()).decode()
 
-    _logo_html = f'<img src="data:image/png;base64,{_tiger_b64}" style="height:44px;width:44px;object-fit:cover;border-radius:4px;border:1px solid #FDD023;">'
+    _logo_html = f'<img src="data:image/png;base64,{_tiger_b64}" style="height:44px;width:44px;object-fit:cover;border-radius:4px;border:1px solid rgba(84,124,93,0.38);">'
 
 except Exception:
 
@@ -1148,8 +586,210 @@ render_html(
     .app-top-spacer {
         height: 0.25rem;
     }
+    header[data-testid="stHeader"] [data-testid="stStatusWidget"],
+    header[data-testid="stHeader"] [aria-label*="running" i],
+    header[data-testid="stHeader"] [title*="running" i] {
+        display: none !important;
+    }
+    .app-busy-indicator {
+        position: fixed;
+        top: 0.72rem;
+        right: 10.5rem;
+        z-index: 9999;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.38rem 0.68rem;
+        border-radius: 999px;
+        border: 1px solid var(--app-green-border);
+        background: rgba(250, 251, 253, 0.94);
+        color: var(--app-green-accent-text);
+        box-shadow: 0 8px 18px rgba(29, 43, 70, 0.08);
+        opacity: 0;
+        transform: translateY(-6px);
+        pointer-events: none;
+        transition: opacity 140ms ease, transform 140ms ease;
+        backdrop-filter: blur(10px);
+    }
+    .app-busy-indicator.is-busy {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    .app-busy-indicator-camera {
+        width: 1.15rem;
+        height: 1.15rem;
+        flex: 0 0 auto;
+    }
+    .app-busy-indicator-camera .cam-body {
+        fill: var(--app-green-accent-strong);
+    }
+    .app-busy-indicator-camera .cam-cap,
+    .app-busy-indicator-camera .cam-mount,
+    .app-busy-indicator-camera .cam-arm {
+        fill: var(--app-green-accent);
+    }
+    .app-busy-indicator-camera .cam-window {
+        fill: var(--app-green-accent-soft);
+    }
+    .app-busy-indicator-camera .cam-lens {
+        fill: var(--app-green-text);
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: app-camera-sweep 1s ease-in-out infinite;
+    }
+    .app-busy-indicator-label {
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+    }
+    @keyframes app-camera-sweep {
+        0% { transform: translateX(-2.6px); }
+        25% { transform: translateX(0); }
+        50% { transform: translateX(2.6px); }
+        75% { transform: translateX(0); }
+        100% { transform: translateX(-2.6px); }
+    }
+    @media (max-width: 1100px) {
+        .app-busy-indicator {
+            right: 8rem;
+            top: 0.68rem;
+        }
+    }
     </style>
     <div class="app-top-spacer"></div>
+    <div class="app-busy-indicator" id="app-busy-indicator" aria-hidden="true">
+        <svg class="app-busy-indicator-camera" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+            <rect class="cam-mount" x="28" y="7" width="8" height="8" rx="2"/>
+            <rect class="cam-arm" x="22" y="13" width="20" height="6" rx="3"/>
+            <rect class="cam-cap" x="16" y="18" width="32" height="8" rx="4"/>
+            <path class="cam-body" d="M14 26 C14 17, 50 17, 50 26 L46 39 C44.8 43.4 40.8 46.5 36.2 46.5 H27.8 C23.2 46.5 19.2 43.4 18 39 Z"/>
+            <ellipse class="cam-window" cx="32" cy="35.5" rx="11.5" ry="7.2"/>
+            <circle class="cam-lens" cx="32" cy="35.5" r="4.3"/>
+        </svg>
+        <span class="app-busy-indicator-label">Working</span>
+    </div>
+    <script>
+    (() => {
+        const frameSvg = (pupilX) => `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+                <rect width="64" height="64" rx="14" fill="#f4f7fc"/>
+                <rect x="28" y="8" width="8" height="7" rx="2" fill="#31476f"/>
+                <rect x="22" y="13" width="20" height="6" rx="3" fill="#31476f"/>
+                <rect x="16" y="18" width="32" height="8" rx="4" fill="#60779d"/>
+                <path d="M14 26 C14 17, 50 17, 50 26 L46 39 C44.8 43.4 40.8 46.5 36.2 46.5 H27.8 C23.2 46.5 19.2 43.4 18 39 Z" fill="#1d2b46"/>
+                <ellipse cx="32" cy="35.5" rx="11.5" ry="7.2" fill="#eaf0f7"/>
+                <circle cx="${pupilX}" cy="35.5" r="4.2" fill="#223047"/>
+            </svg>
+        `;
+
+        const frames = [27, 32, 37, 32].map((x) => `data:image/svg+xml,${encodeURIComponent(frameSvg(x))}`);
+        const idleIcon = frames[1];
+        let frameIndex = 0;
+        let timer = null;
+        let quietUntil = 0;
+        let busyHideTimer = null;
+
+        const ensureFavicon = () => {
+            let link = document.querySelector('link[rel="icon"]');
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.head.appendChild(link);
+            }
+            return link;
+        };
+
+        const setIcon = (href) => {
+            ensureFavicon().setAttribute('href', href);
+        };
+
+        const busyIndicator = () => document.getElementById('app-busy-indicator');
+
+        const setBusyVisible = (visible) => {
+            const el = busyIndicator();
+            if (!el) {
+                return;
+            }
+            el.classList.toggle('is-busy', visible);
+        };
+
+        const hasActiveIndicators = () => {
+            return Boolean(
+                document.querySelector('[data-testid="stSpinner"]') ||
+                document.querySelector('[aria-label*="running" i]') ||
+                document.querySelector('[title*="running" i]') ||
+                document.querySelector('button[title*="Stop" i]')
+            );
+        };
+
+        const stopAnimation = () => {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+            if (busyHideTimer) {
+                clearTimeout(busyHideTimer);
+                busyHideTimer = null;
+            }
+            setBusyVisible(false);
+            setIcon(idleIcon);
+        };
+
+        const tick = () => {
+            if (Date.now() > quietUntil && !hasActiveIndicators()) {
+                stopAnimation();
+                return;
+            }
+            frameIndex = (frameIndex + 1) % frames.length;
+            setIcon(frames[frameIndex]);
+        };
+
+        const startAnimation = (durationMs = 1800) => {
+            quietUntil = Math.max(quietUntil, Date.now() + durationMs);
+            setBusyVisible(true);
+            if (busyHideTimer) {
+                clearTimeout(busyHideTimer);
+            }
+            busyHideTimer = window.setTimeout(() => {
+                if (!hasActiveIndicators() && Date.now() >= quietUntil) {
+                    setBusyVisible(false);
+                }
+            }, durationMs + 80);
+            if (timer) {
+                return;
+            }
+            setIcon(frames[frameIndex]);
+            timer = window.setInterval(tick, 180);
+        };
+
+        setIcon(idleIcon);
+        startAnimation(1200);
+
+        const observer = new MutationObserver((mutations) => {
+            const meaningfulChange = mutations.some((mutation) => mutation.addedNodes.length || mutation.removedNodes.length);
+            if (meaningfulChange) {
+                startAnimation(1400);
+            }
+        });
+
+        const boot = () => {
+            observer.observe(document.body, { childList: true, subtree: true });
+            document.addEventListener('click', (event) => {
+                if (event.target instanceof Element && event.target.closest('button, [role="button"], input, textarea, select')) {
+                    startAnimation(2200);
+                }
+            }, true);
+            window.addEventListener('beforeunload', () => startAnimation(4000));
+        };
+
+        if (document.body) {
+            boot();
+        } else {
+            window.addEventListener('DOMContentLoaded', boot, { once: true });
+        }
+    })();
+    </script>
     """
 )
 
@@ -1166,11 +806,11 @@ if not theme_dark_mode:
 
         background:
 
-            radial-gradient(circle at top right, rgba(70, 29, 124, 0.08), transparent 30%),
+            radial-gradient(circle at top right, rgba(84, 124, 93, 0.10), transparent 30%),
 
-            radial-gradient(circle at top left, rgba(253, 208, 35, 0.12), transparent 26%),
+            radial-gradient(circle at top left, rgba(178, 209, 183, 0.24), transparent 26%),
 
-            #f6f4fb !important;
+            #f4f8f1 !important;
 
     }
 
@@ -1178,15 +818,15 @@ if not theme_dark_mode:
 
     [data-testid="stSidebar"] {
 
-        background: linear-gradient(180deg, #fcfaff 0%, #f5effc 100%) !important;
+        background: linear-gradient(180deg, #f7fbf6 0%, #edf4eb 100%) !important;
 
-        border-right: 3px solid #FDD023 !important;
+        border-right: 1px solid rgba(84, 124, 93, 0.28) !important;
 
     }
 
     [data-testid="stSidebar"] * {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
     }
 
@@ -1196,17 +836,17 @@ if not theme_dark_mode:
 
         background-color: #ffffff !important;
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
-        border: 2px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.22) !important;
 
-        box-shadow: 0 0 0 1px rgba(253, 208, 35, 0.2) !important;
+        box-shadow: 0 0 0 1px rgba(178, 209, 183, 0.22) !important;
 
     }
 
     [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
         font-weight: 700 !important;
 
@@ -1214,15 +854,15 @@ if not theme_dark_mode:
 
     [data-testid="stSidebar"] .stButton > button {
 
-        background: linear-gradient(135deg, #461D7C, #5f3e98) !important;
+        background: linear-gradient(180deg, #5d8667, #4f7a5b) !important;
 
-        color: #FDD023 !important;
+        color: #f7fbf7 !important;
 
-        border: 2px solid #FDD023 !important;
+        border: 1px solid rgba(79, 122, 91, 0.34) !important;
 
         animation: none !important;
 
-        box-shadow: 0 6px 14px rgba(70, 29, 124, 0.14) !important;
+        box-shadow: 0 8px 18px rgba(79, 122, 91, 0.12) !important;
 
         border-radius: 10px !important;
 
@@ -1230,25 +870,25 @@ if not theme_dark_mode:
 
     [data-testid="stSidebar"] .stButton > button:hover {
 
-        background: #5b2791 !important;
+        background: linear-gradient(180deg, #6f9677, #5d8667) !important;
 
-        color: #FDD023 !important;
+        color: #f7fbf7 !important;
 
-        border-color: #FDD023 !important;
+        border-color: rgba(79, 122, 91, 0.52) !important;
 
-        box-shadow: 0 8px 18px rgba(70, 29, 124, 0.18) !important;
+        box-shadow: 0 10px 22px rgba(79, 122, 91, 0.16) !important;
 
     }
 
     [data-testid="stSidebar"] .stButton > button * {
 
-        color: #FDD023 !important;
+        color: #f7fbf7 !important;
 
     }
 
     [data-testid="stSidebar"] .stButton > button:focus-visible {
 
-        outline: 3px solid #FDD023 !important;
+        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
 
         outline-offset: 2px !important;
 
@@ -1256,13 +896,13 @@ if not theme_dark_mode:
 
     [data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type {
 
-        border-bottom: 1px solid rgba(70, 29, 124, 0.2) !important;
+        border-bottom: 1px solid rgba(84, 124, 93, 0.16) !important;
 
     }
 
     [data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type > div:first-of-type p {
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
     }
 
@@ -1272,7 +912,7 @@ if not theme_dark_mode:
 
         background: rgba(252, 249, 255, 0.96) !important;
 
-        border-bottom: 3px solid #FDD023 !important;
+        border-bottom: 1px solid rgba(84, 124, 93, 0.2) !important;
 
     }
 
@@ -1280,13 +920,13 @@ if not theme_dark_mode:
 
     html, body, [class*="css"] {
 
-        color: #24183d !important;
+        color: #24362b !important;
 
     }
 
     h1, h2, h3 {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
     }
 
@@ -1296,7 +936,7 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] .stMarkdown {
 
-        color: #5e5473 !important;
+        color: #627467 !important;
 
     }
 
@@ -1304,9 +944,9 @@ if not theme_dark_mode:
 
     [data-testid="stTitle"] {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
-        border-bottom: 2px solid #461D7C !important;
+        border-bottom: 1px solid rgba(84, 124, 93, 0.2) !important;
 
     }
 
@@ -1314,23 +954,23 @@ if not theme_dark_mode:
 
     [data-testid="stMetric"] {
 
-        background: linear-gradient(180deg, #ffffff, #f7f1ff) !important;
+        background: linear-gradient(180deg, #ffffff, #f2f7f0) !important;
 
-        border: 2px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.16) !important;
 
-        box-shadow: 0 8px 18px rgba(70, 29, 124, 0.08), inset 0 0 0 1px rgba(253, 208, 35, 0.2) !important;
+        box-shadow: 0 8px 18px rgba(79, 122, 91, 0.08), inset 0 0 0 1px rgba(178, 209, 183, 0.2) !important;
 
     }
 
     [data-testid="stMetricLabel"] > div {
 
-        color: #461D7C !important;
+        color: #5f7363 !important;
 
     }
 
     [data-testid="stMetricValue"] > div {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
     }
 
@@ -1338,13 +978,13 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] .stButton > button {
 
-        background: linear-gradient(135deg, #461D7C, #5f3e98) !important;
+        background: linear-gradient(180deg, #5d8667, #4f7a5b) !important;
 
-        color: #FDD023 !important;
+        color: #f7fbf7 !important;
 
-        border: 2px solid #FDD023 !important;
+        border: 1px solid rgba(79, 122, 91, 0.34) !important;
 
-        box-shadow: 0 4px 12px rgba(70, 29, 124, 0.14) !important;
+        box-shadow: 0 8px 18px rgba(79, 122, 91, 0.12) !important;
 
         border-radius: 10px !important;
 
@@ -1354,31 +994,31 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] .stButton > button * {
 
-        color: #FDD023 !important;
+        color: #f7fbf7 !important;
 
     }
 
     [data-testid="stMain"] .stButton > button:hover {
 
-        background: #5b2791 !important;
+        background: linear-gradient(180deg, #6f9677, #5d8667) !important;
 
-        color: #FDD023 !important;
+        color: #f7fbf7 !important;
 
-        border-color: #FDD023 !important;
+        border-color: rgba(79, 122, 91, 0.52) !important;
 
-        box-shadow: 0 8px 18px rgba(70, 29, 124, 0.18) !important;
+        box-shadow: 0 10px 22px rgba(79, 122, 91, 0.16) !important;
 
     }
 
     [data-testid="stMain"] .stButton > button:hover * {
 
-        color: #FDD023 !important;
+        color: #f7fbf7 !important;
 
     }
 
     [data-testid="stMain"] .stButton > button:focus-visible {
 
-        outline: 3px solid #FDD023 !important;
+        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
 
         outline-offset: 2px !important;
 
@@ -1396,11 +1036,11 @@ if not theme_dark_mode:
 
         background-color: #ffffff !important;
 
-        color: #24183d !important;
+        color: #24362b !important;
 
-        border: 2px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.18) !important;
 
-        box-shadow: 0 0 0 1px rgba(253, 208, 35, 0.16) !important;
+        box-shadow: 0 0 0 1px rgba(178, 209, 183, 0.18) !important;
 
     }
 
@@ -1408,9 +1048,9 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] textarea:focus {
 
-        border-color: #FDD023 !important;
+        border-color: rgba(98, 143, 108, 0.42) !important;
 
-        box-shadow: 0 0 0 3px rgba(253, 208, 35, 0.22) !important;
+        box-shadow: 0 0 0 3px rgba(98, 143, 108, 0.16) !important;
 
         animation: none !important;
 
@@ -1418,7 +1058,7 @@ if not theme_dark_mode:
 
     div[data-testid="stTextInput"] label p {
 
-        color: #461D7C !important;
+        color: #516455 !important;
 
         font-weight: 700 !important;
 
@@ -1434,7 +1074,7 @@ if not theme_dark_mode:
 
     div[data-testid="stTextInput"] input::placeholder {
 
-        color: #6d6484 !important;
+        color: #8a988c !important;
 
         opacity: 1 !important;
 
@@ -1442,19 +1082,19 @@ if not theme_dark_mode:
 
     [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
 
-        background-color: #FDD023 !important;
+        background-color: #e4efe2 !important;
 
-        color: #461D7C !important;
+        color: #46634c !important;
 
-        border: 1px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.22) !important;
 
     }
 
     [data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
 
-        color: #461D7C !important;
+        color: #46634c !important;
 
-        fill: #461D7C !important;
+        fill: #46634c !important;
 
     }
 
@@ -1462,7 +1102,7 @@ if not theme_dark_mode:
 
     [data-testid="stCheckbox"] label {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
     }
 
@@ -1470,33 +1110,33 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] > div {
 
-        border: 2px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.2) !important;
 
         border-radius: 10px !important;
 
         background-color: #ffffff !important;
 
-        box-shadow: inset 0 0 0 1px rgba(253, 208, 35, 0.18) !important;
+        box-shadow: inset 0 0 0 1px rgba(178, 209, 183, 0.2) !important;
 
     }
 
     [data-testid="stDataFrame"] th {
 
-        background-color: #461D7C !important;
+        background-color: #d8e6d5 !important;
 
-        color: #FDD023 !important;
+        color: #2d4936 !important;
 
     }
 
     [data-testid="stDataFrame"] tr:nth-child(even) {
 
-        background-color: rgba(70, 29, 124, 0.04) !important;
+        background-color: rgba(220, 233, 219, 0.45) !important;
 
     }
 
     [data-testid="stDataFrame"] tr:hover {
 
-        background-color: rgba(253, 208, 35, 0.12) !important;
+        background-color: rgba(230, 240, 228, 0.88) !important;
 
     }
 
@@ -1562,9 +1202,9 @@ if not theme_dark_mode:
 
         background: rgba(255, 255, 255, 0.88) !important;
 
-        border: 1px solid rgba(70, 29, 124, 0.16) !important;
+        border: 1px solid rgba(84, 124, 93, 0.16) !important;
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
         border-radius: 8px !important;
 
@@ -1576,13 +1216,13 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] [role="button"]:hover {
 
-        background: rgba(247, 241, 255, 0.98) !important;
+        background: rgba(243, 248, 241, 0.98) !important;
 
-        border-color: rgba(253, 208, 35, 0.9) !important;
+        border-color: rgba(98, 143, 108, 0.42) !important;
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
-        box-shadow: 0 2px 8px rgba(70, 29, 124, 0.08) !important;
+        box-shadow: 0 2px 8px rgba(79, 122, 91, 0.08) !important;
 
     }
 
@@ -1590,7 +1230,7 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] [role="button"]:focus-visible {
 
-        outline: 2px solid #FDD023 !important;
+        outline: 2px solid rgba(98, 143, 108, 0.28) !important;
 
         outline-offset: 1px !important;
 
@@ -1600,9 +1240,9 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] [role="button"] svg {
 
-        fill: #461D7C !important;
+        fill: #547c5d !important;
 
-        stroke: #461D7C !important;
+        stroke: #547c5d !important;
 
     }
 
@@ -1612,7 +1252,7 @@ if not theme_dark_mode:
 
         background-color: rgba(255, 255, 255, 0.92) !important;
 
-        border: 2px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.2) !important;
 
     }
 
@@ -1638,7 +1278,7 @@ if not theme_dark_mode:
 
         background-color: rgba(255, 255, 255, 0.92) !important;
 
-        border: 2px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.2) !important;
 
         box-shadow: inset 0 0 0 1px rgba(253, 208, 35, 0.16) !important;
 
@@ -1646,7 +1286,7 @@ if not theme_dark_mode:
 
     [data-testid="stExpander"] summary {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
         font-weight: 700 !important;
 
@@ -1654,7 +1294,7 @@ if not theme_dark_mode:
 
     [data-testid="stExpander"] summary:focus-visible {
 
-        outline: 3px solid #FDD023 !important;
+        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
 
         outline-offset: 2px !important;
 
@@ -1668,9 +1308,9 @@ if not theme_dark_mode:
 
     [data-testid="stHeading"] h3 {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
-        border-left: 4px solid #FDD023 !important;
+        border-left: 4px solid #7aa66f !important;
 
     }
 
@@ -1678,7 +1318,7 @@ if not theme_dark_mode:
 
     [data-testid="stCaptionContainer"] {
 
-        color: #675a81 !important;
+        color: #627467 !important;
 
     }
 
@@ -1688,7 +1328,7 @@ if not theme_dark_mode:
 
         background-color: rgba(255, 255, 255, 0.92) !important;
 
-        border: 2px dashed #461D7C !important;
+        border: 2px dashed rgba(84, 124, 93, 0.32) !important;
 
     }
 
@@ -1704,29 +1344,29 @@ if not theme_dark_mode:
 
     [data-testid="stFileUploader"] * {
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
     }
 
     [data-testid="stFileUploader"] button {
 
-        background: #f7f1ff !important;
+        background: #f5f9f2 !important;
 
-        border: 1px solid #461D7C !important;
+        border: 1px solid rgba(84, 124, 93, 0.22) !important;
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
     }
 
     [data-testid="stFileUploader"] button * {
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
     }
 
     [data-testid="stFileUploader"]:hover {
 
-        border-color: #FDD023 !important;
+        border-color: rgba(98, 143, 108, 0.36) !important;
 
     }
 
@@ -1734,9 +1374,9 @@ if not theme_dark_mode:
 
     button[data-baseweb="tab"] {
 
-        color: #461D7C !important;
+        color: #547c5d !important;
 
-        border: 1px solid rgba(70, 29, 124, 0.28) !important;
+        border: 1px solid rgba(84, 124, 93, 0.18) !important;
 
         border-bottom: 0 !important;
 
@@ -1750,19 +1390,19 @@ if not theme_dark_mode:
 
     button[data-baseweb="tab"][aria-selected="true"] {
 
-        color: #2f1e52 !important;
+        color: #24362b !important;
 
-        border-color: #461D7C !important;
+        border-color: rgba(84, 124, 93, 0.24) !important;
 
-        background: #f7f1ff !important;
+        background: #edf4eb !important;
 
-        box-shadow: inset 0 -3px 0 #FDD023 !important;
+        box-shadow: inset 0 -3px 0 #7aa66f !important;
 
     }
 
     button[data-baseweb="tab"]:focus-visible {
 
-        outline: 3px solid #FDD023 !important;
+        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
 
         outline-offset: 2px !important;
 
@@ -1770,45 +1410,678 @@ if not theme_dark_mode:
 
 
 
-    ::-webkit-scrollbar-track { background: #eee8f7 !important; }
+    ::-webkit-scrollbar-track { background: #edf4eb !important; }
 
-    ::-webkit-scrollbar-thumb { background: #b8abd5 !important; }
+    ::-webkit-scrollbar-thumb { background: #97b39d !important; }
 
-    ::-webkit-scrollbar-thumb:hover { background: #5f3e98 !important; }
+    ::-webkit-scrollbar-thumb:hover { background: #5d8667 !important; }
 
 
 
     .lsu-banner-wrapper {
 
-        background: linear-gradient(90deg, #ffffff 0%, #f4eefc 100%) !important;
+        background: linear-gradient(90deg, #ffffff 0%, #f6f6f2 100%) !important;
 
-        border: 2px solid #461D7C !important;
+        border: 1px solid rgba(101, 115, 103, 0.16) !important;
 
-        box-shadow: 0 4px 14px rgba(70, 29, 124, 0.08), inset 0 0 0 1px rgba(253, 208, 35, 0.18) !important;
+        box-shadow: 0 4px 14px rgba(74, 92, 79, 0.06), inset 0 0 0 1px rgba(225, 231, 221, 0.45) !important;
 
     }
 
     .lsu-banner-wrapper::after {
 
-        background: linear-gradient(90deg, #5f3e98 0%, #fdd023 50%, #5f3e98 100%) !important;
+        background: linear-gradient(90deg, #6d8372 0%, #d9e2d5 50%, #6d8372 100%) !important;
 
     }
 
     .lsu-banner-title {
 
-        color: #4a2c7f !important;
+        color: #2d4936 !important;
 
     }
 
     .lsu-banner-subtitle {
 
-        color: #6e5f8d !important;
+        color: #627467 !important;
 
     }
 
     </style>
 
     """, unsafe_allow_html=True)
+
+    theme_css_vars = "\n".join(
+        [
+            f'--app-green-bg: {active_theme["app_bg"]};',
+            f'--app-green-bg-soft: {active_theme["app_bg_soft"]};',
+            f'--app-green-surface: {active_theme["surface"]};',
+            f'--app-green-surface-2: {active_theme["surface_2"]};',
+            f'--app-green-surface-3: {active_theme["surface_3"]};',
+            f'--app-green-cell-shell: {active_theme["cell_shell"]};',
+            f'--app-green-cell: {active_theme["cell"]};',
+            f'--app-green-cell-alt: {active_theme["cell_alt"]};',
+            f'--app-green-cell-hover: {active_theme["cell_hover"]};',
+            f'--app-green-cell-header: {active_theme["cell_header"]};',
+            f'--app-green-border: {active_theme["border"]};',
+            f'--app-green-border-strong: {active_theme["border_strong"]};',
+            f'--app-green-text: {active_theme["text_main"]};',
+            f'--app-green-muted: {active_theme["text_muted"]};',
+            f'--app-green-accent: {active_theme["accent"]};',
+            f'--app-green-accent-strong: {active_theme["accent_strong"]};',
+            f'--app-green-accent-soft: {active_theme["accent_soft"]};',
+            f'--app-green-hover: {active_theme["accent_soft_2"]};',
+            f'--app-green-accent-text: {active_theme["accent_text"]};',
+            f'--app-green-accent-hover: {active_theme["accent_hover"]};',
+            f'--app-green-focus-ring: {active_theme["focus_ring"]};',
+            f'--app-green-focus-border: {active_theme["focus_border"]};',
+            f'--app-green-placeholder: {active_theme["placeholder"]};',
+            f'--app-green-sidebar-top: {active_theme["sidebar_bg_top"]};',
+            f'--app-green-sidebar-bottom: {active_theme["sidebar_bg_bottom"]};',
+            f'--app-green-sidebar-hover: {active_theme["sidebar_hover"]};',
+            f'--app-green-sidebar-selected: {active_theme["sidebar_selected"]};',
+            f'--app-green-sidebar-button-top: {active_theme["sidebar_button_top"]};',
+            f'--app-green-sidebar-button-bottom: {active_theme["sidebar_button_bottom"]};',
+            f'--app-green-sidebar-button-border: {active_theme["sidebar_button_border"]};',
+            f'--app-green-sidebar-button-text: {active_theme["sidebar_button_text"]};',
+            f'--app-green-sidebar-button-hover-top: {active_theme["sidebar_button_hover_top"]};',
+            f'--app-green-sidebar-button-hover-bottom: {active_theme["sidebar_button_hover_bottom"]};',
+            f'--app-green-sidebar-text: {active_theme["sidebar_text"]};',
+            f'--app-green-sidebar-text-muted: {active_theme["sidebar_text_muted"]};',
+            f'--app-green-sidebar-accent: {active_theme["sidebar_accent"]};',
+            f'--app-green-sidebar-accent-strong: {active_theme["sidebar_accent_strong"]};',
+            f'--app-green-sidebar-panel-top: {active_theme["sidebar_panel_top"]};',
+            f'--app-green-sidebar-panel-bottom: {active_theme["sidebar_panel_bottom"]};',
+            f'--app-green-sidebar-panel-border: {active_theme["sidebar_panel_border"]};',
+            f'--app-green-header-bg: {active_theme["header_bg"]};',
+            f'--app-green-tab-shadow: {active_theme["tab_shadow"]};',
+            f'--app-green-scrollbar: {active_theme["scrollbar"]};',
+            f'--app-green-scrollbar-hover: {active_theme["scrollbar_hover"]};',
+            f'--app-green-banner-line-start: {active_theme["banner_line_start"]};',
+            f'--app-green-banner-line-mid: {active_theme["banner_line_mid"]};',
+            f'--app-green-banner-line-end: {active_theme["banner_line_end"]};',
+        ]
+    )
+    st.markdown(
+        """
+    <style>
+    :root {
+    """
+        + theme_css_vars
+        + """
+    }
+
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background:
+            radial-gradient(circle at top right, rgba(124, 139, 127, 0.05), transparent 28%),
+            radial-gradient(circle at top left, rgba(232, 236, 229, 0.65), transparent 24%),
+            linear-gradient(180deg, var(--app-green-bg) 0%, var(--app-green-bg-soft) 100%) !important;
+    }
+
+    section[data-testid="stSidebar"],
+    [data-testid="stSidebar"] {
+        position: relative !important;
+        background: linear-gradient(180deg, var(--app-green-sidebar-top) 0%, var(--app-green-sidebar-bottom) 100%) !important;
+        border-right: 1px solid rgba(95, 119, 101, 0.26) !important;
+        box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.62), 10px 0 24px rgba(95, 119, 101, 0.06) !important;
+    }
+
+    section[data-testid="stSidebar"]::before,
+    [data-testid="stSidebar"]::before,
+    [data-testid="stSidebarContent"]::before {
+        content: "" !important;
+        position: absolute !important;
+        inset: 0 !important;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(243, 247, 239, 0.06) 100%) !important;
+        opacity: 1 !important;
+        pointer-events: none !important;
+        z-index: 0 !important;
+    }
+
+    section[data-testid="stSidebar"] > div,
+    [data-testid="stSidebarContent"],
+    [data-testid="stSidebar"] > div:first-child,
+    [data-testid="stSidebar"] > div:first-child > div:first-child {
+        position: relative !important;
+        z-index: 1 !important;
+        background: linear-gradient(180deg, var(--app-green-sidebar-top) 0%, var(--app-green-sidebar-bottom) 100%) !important;
+    }
+
+    [data-testid="stSidebarContent"] {
+        border-right: 1px solid rgba(95, 119, 101, 0.24) !important;
+        box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.48) !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"],
+    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] {
+        background: transparent !important;
+        position: relative !important;
+        z-index: 1 !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] {
+        gap: 0.06rem !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label {
+        margin: 0 !important;
+        padding: 0.18rem 0.34rem !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--app-green-sidebar-panel-border) !important;
+        background: linear-gradient(180deg, var(--app-green-sidebar-panel-top), var(--app-green-sidebar-panel-bottom)) !important;
+        box-shadow: 0 4px 12px rgba(95, 119, 101, 0.06) !important;
+        transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
+        background: var(--app-green-sidebar-hover) !important;
+        border-color: var(--app-green-sidebar-accent) !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] {
+        background: linear-gradient(180deg, var(--app-green-sidebar-hover), var(--app-green-sidebar-selected)) !important;
+        border-color: var(--app-green-sidebar-accent) !important;
+        box-shadow: 0 8px 18px rgba(95, 119, 101, 0.10) !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] p {
+        color: var(--app-green-sidebar-accent-strong) !important;
+        font-weight: 700 !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] {
+        outline: 1px solid rgba(143, 162, 143, 0.30) !important;
+    }
+
+    [data-testid="stSidebar"] [data-baseweb="radio"] label,
+    [data-testid="stSidebar"] [data-baseweb="radio"] > div {
+        background: transparent !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
+        color: var(--app-green-sidebar-text-muted) !important;
+        margin: 0 !important;
+        line-height: 1.18 !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {
+        color: var(--app-green-sidebar-accent-strong) !important;
+        transform: scale(0.9) !important;
+        margin-top: -1px !important;
+    }
+
+    [data-testid="stSidebar"] input[type="radio"],
+    [data-testid="stSidebar"] input[type="radio"] + div,
+    [data-testid="stSidebar"] [role="radiogroup"] svg {
+        accent-color: var(--app-green-sidebar-accent) !important;
+        color: var(--app-green-sidebar-accent) !important;
+        fill: var(--app-green-sidebar-accent) !important;
+        stroke: var(--app-green-sidebar-accent) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
+        margin-bottom: 0.18rem !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        margin: 0 !important;
+        line-height: 1.1 !important;
+        color: var(--app-green-sidebar-text) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        margin-top: 0.18rem !important;
+        margin-bottom: 0.6rem !important;
+        line-height: 1.25 !important;
+        color: var(--app-green-sidebar-text-muted) !important;
+    }
+
+    header[data-testid="stHeader"] {
+        background: var(--app-green-header-bg) !important;
+        border-bottom: 1px solid var(--app-green-border-strong) !important;
+    }
+
+    html, body, [class*="css"] {
+        color: var(--app-green-text) !important;
+    }
+
+    h1, h2, h3,
+    [data-testid="stTitle"],
+    [data-testid="stHeading"] h2,
+    [data-testid="stHeading"] h3 {
+        color: var(--app-green-text) !important;
+        border-color: var(--app-green-accent) !important;
+    }
+
+    [data-testid="stMain"] p,
+    [data-testid="stMain"] label,
+    [data-testid="stMain"] .stMarkdown,
+    [data-testid="stCaptionContainer"],
+    .stCaption {
+        color: var(--app-green-muted) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stMain"] .stButton > button,
+    div[data-testid="stButton"] > button {
+        background: linear-gradient(180deg, var(--app-green-surface), var(--app-green-cell-shell)) !important;
+        color: var(--app-green-accent-strong) !important;
+        border: 1px solid var(--app-green-border-strong) !important;
+        box-shadow: 0 4px 10px rgba(84, 124, 93, 0.08) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button {
+        background: linear-gradient(180deg, var(--app-green-sidebar-button-top), var(--app-green-sidebar-button-bottom)) !important;
+        color: var(--app-green-sidebar-button-text) !important;
+        border: 1px solid var(--app-green-sidebar-button-border) !important;
+        box-shadow: 0 6px 16px rgba(95, 119, 101, 0.08) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button *,
+    [data-testid="stMain"] .stButton > button *,
+    div[data-testid="stButton"] > button * {
+        color: var(--app-green-accent-text) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button * {
+        color: var(--app-green-sidebar-button-text) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stMain"] .stButton > button:hover,
+    div[data-testid="stButton"] > button:hover {
+        background: linear-gradient(180deg, var(--app-green-surface-2), var(--app-green-cell-header)) !important;
+        color: var(--app-green-accent-hover) !important;
+        border-color: var(--app-green-accent) !important;
+        box-shadow: 0 6px 16px rgba(84, 124, 93, 0.12) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: linear-gradient(180deg, var(--app-green-sidebar-button-hover-top), var(--app-green-sidebar-button-hover-bottom)) !important;
+        color: var(--app-green-sidebar-button-text) !important;
+        border-color: var(--app-green-sidebar-accent) !important;
+        box-shadow: 0 10px 22px rgba(95, 119, 101, 0.12) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover *,
+    [data-testid="stMain"] .stButton > button:hover *,
+    div[data-testid="stButton"] > button:hover * {
+        color: var(--app-green-accent-hover) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover * {
+        color: var(--app-green-sidebar-button-text) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:focus-visible,
+    [data-testid="stMain"] .stButton > button:focus-visible,
+    div[data-testid="stButton"] > button:focus-visible,
+    [data-testid="stExpander"] summary:focus-visible,
+    button[data-baseweb="tab"]:focus-visible {
+        outline: 2px solid var(--app-green-focus-border) !important;
+        outline-offset: 2px !important;
+    }
+
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] textarea,
+    [data-testid="stMain"] input[type="text"],
+    [data-testid="stMain"] textarea,
+    [data-testid="stSelectbox"] > div > div,
+    [data-testid="stMultiSelect"] > div > div,
+    [data-baseweb="input"] > div,
+    [data-baseweb="select"] > div,
+    div[data-testid="stTextInput"] input {
+        background: var(--app-green-surface) !important;
+        color: var(--app-green-text) !important;
+        border: 1px solid var(--app-green-border-strong) !important;
+        box-shadow: inset 0 2px 5px rgba(84, 124, 93, 0.04), 0 3px 8px rgba(84, 124, 93, 0.06) !important;
+    }
+
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] textarea,
+    [data-testid="stSidebar"] [data-baseweb="select"] > div,
+    [data-testid="stSidebar"] [data-baseweb="input"] > div {
+        background: linear-gradient(180deg, var(--app-green-sidebar-panel-top), var(--app-green-sidebar-panel-bottom)) !important;
+        color: var(--app-green-sidebar-text) !important;
+        border: 1px solid var(--app-green-sidebar-panel-border) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 12px rgba(95, 119, 101, 0.04) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stExpander"],
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] {
+        background: linear-gradient(180deg, var(--app-green-sidebar-panel-top), var(--app-green-sidebar-panel-bottom)) !important;
+        border: 1px solid var(--app-green-sidebar-panel-border) !important;
+        border-radius: 14px !important;
+        box-shadow: 0 6px 16px rgba(95, 119, 101, 0.05) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] *,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] section,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] [class*="uploadDropzone"] {
+        background: transparent !important;
+        color: var(--app-green-sidebar-text) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] > div,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] section,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] [class*="uploadDropzone"] {
+        border-radius: 12px !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button {
+        background: linear-gradient(180deg, #ffffff, #f2f6ef) !important;
+        border: 1px solid var(--app-green-sidebar-panel-border) !important;
+        color: var(--app-green-sidebar-button-text) !important;
+        box-shadow: 0 4px 12px rgba(95, 119, 101, 0.06) !important;
+    }
+
+    [data-testid="stSidebar"] input::placeholder,
+    [data-testid="stMain"] input[type="text"]::placeholder,
+    div[data-testid="stTextInput"] input::placeholder {
+        color: var(--app-green-placeholder) !important;
+    }
+
+    [data-testid="stMain"] input[type="text"]:focus,
+    [data-testid="stMain"] textarea:focus,
+    div[data-testid="stTextInput"] input:focus {
+        border-color: var(--app-green-focus-border) !important;
+        box-shadow: 0 0 0 3px var(--app-green-focus-ring) !important;
+    }
+
+    div[data-testid="stTextInput"] label p,
+    [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
+        color: var(--app-green-accent-text) !important;
+    }
+
+    [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p,
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+    [data-testid="stSidebar"] .stCaption {
+        color: var(--app-green-sidebar-text) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
+        color: var(--app-green-sidebar-text-muted) !important;
+    }
+
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+        background: var(--app-green-accent-soft) !important;
+        color: var(--app-green-accent-text) !important;
+        border: 1px solid var(--app-green-border-strong) !important;
+    }
+
+    [data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
+        color: var(--app-green-accent-text) !important;
+        fill: var(--app-green-accent-text) !important;
+    }
+
+    [data-testid="stMetric"] {
+        background: linear-gradient(180deg, var(--app-green-surface), var(--app-green-surface-3)) !important;
+        border: 1px solid var(--app-green-border) !important;
+        box-shadow: 0 10px 24px rgba(74, 92, 79, 0.05) !important;
+    }
+
+    [data-testid="stMetricLabel"] > div {
+        color: #6a7d6e !important;
+    }
+
+    [data-testid="stMetricValue"] > div {
+        color: var(--app-green-text) !important;
+    }
+
+    [data-testid="stDataFrame"],
+    [data-testid="stDataEditor"] {
+        padding: 6px !important;
+        border-radius: 14px !important;
+        background: linear-gradient(180deg, var(--app-green-cell-shell), #dde3da) !important;
+        border: 1px solid rgba(87, 119, 95, 0.22) !important;
+        box-shadow: 0 14px 28px rgba(74, 92, 79, 0.08) !important;
+    }
+
+    [data-testid="stDataFrame"] > div,
+    [data-testid="stDataEditor"] > div {
+        background: var(--app-green-cell) !important;
+        border: 1px solid rgba(87, 119, 95, 0.20) !important;
+        border-radius: 12px !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid="stDataFrame"] th,
+    [data-testid="stDataEditor"] th {
+        background: linear-gradient(180deg, var(--app-green-accent), var(--app-green-accent-strong)) !important;
+        color: #eef6ee !important;
+        border-bottom: 1px solid var(--app-green-border-strong) !important;
+    }
+
+    [data-testid="stDataFrame"] tr:nth-child(even),
+    [data-testid="stDataEditor"] tr:nth-child(even) {
+        background: var(--app-green-cell-alt) !important;
+    }
+
+    [data-testid="stDataFrame"] tr:hover,
+    [data-testid="stDataEditor"] tr:hover {
+        background: var(--app-green-cell-hover) !important;
+    }
+
+    [data-testid="stDataFrame"] td,
+    [data-testid="stDataFrame"] div,
+    [data-testid="stDataEditor"] td,
+    [data-testid="stDataEditor"] div {
+        color: #274231 !important;
+    }
+
+    [data-testid="stDataFrame"] td,
+    [data-testid="stDataEditor"] td {
+        background: transparent !important;
+    }
+
+    [data-testid="stDataFrame"] canvas {
+        filter: none !important;
+    }
+
+    [data-testid="stDataFrame"] button,
+    [data-testid="stDataFrame"] [role="button"],
+    [data-testid="stDataEditor"] button,
+    [data-testid="stDataEditor"] [role="button"] {
+        background: #f7faf5 !important;
+        color: var(--app-green-accent-text) !important;
+        border: 1px solid var(--app-green-border) !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid="stDataFrame"] button:hover,
+    [data-testid="stDataFrame"] [role="button"]:hover,
+    [data-testid="stDataEditor"] button:hover,
+    [data-testid="stDataEditor"] [role="button"]:hover {
+        background: #f1f3ee !important;
+        color: var(--app-green-accent-hover) !important;
+        border-color: var(--app-green-border-strong) !important;
+    }
+
+    [data-testid="stDataFrame"] button svg,
+    [data-testid="stDataFrame"] [role="button"] svg,
+    [data-testid="stDataEditor"] button svg,
+    [data-testid="stDataEditor"] [role="button"] svg {
+        fill: var(--app-green-accent-strong) !important;
+        stroke: var(--app-green-accent-strong) !important;
+    }
+
+    [data-testid="stFileUploader"],
+    [data-testid="stExpander"] {
+        background: rgba(255, 255, 255, 0.92) !important;
+        border: 1px solid var(--app-green-border) !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid="stFileUploader"] > div,
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] [class*="uploadDropzone"] {
+        background: rgba(255, 255, 255, 0.96) !important;
+    }
+
+    [data-testid="stFileUploader"] *,
+    [data-testid="stExpander"] summary {
+        color: var(--app-green-text) !important;
+    }
+
+    [data-testid="stFileUploader"] button {
+        background: #f7faf5 !important;
+        border: 1px solid var(--app-green-border) !important;
+        color: var(--app-green-accent-text) !important;
+    }
+
+    [data-testid="stFileUploader"]:hover {
+        border-color: var(--app-green-border-strong) !important;
+    }
+
+    button[data-baseweb="tab"] {
+        color: var(--app-green-muted) !important;
+        border: 1px solid var(--app-green-border) !important;
+        border-bottom: 0 !important;
+        background: linear-gradient(180deg, #fafcf9, #eff5ee) !important;
+        box-shadow: none !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: var(--app-green-text) !important;
+        border-color: var(--app-green-border-strong) !important;
+        background: linear-gradient(180deg, #ffffff, #f3f4ef) !important;
+        box-shadow: inset 0 -3px 0 var(--app-green-tab-shadow) !important;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f3ee !important;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--app-green-scrollbar) !important;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--app-green-scrollbar-hover) !important;
+    }
+
+    .lsu-banner-wrapper {
+        background: linear-gradient(90deg, #ffffff 0%, #f3f4ef 100%) !important;
+        border: 1px solid var(--app-green-border) !important;
+        box-shadow: 0 8px 20px rgba(84, 124, 93, 0.06) !important;
+    }
+
+    .lsu-banner-wrapper::after {
+        background: linear-gradient(90deg, var(--app-green-banner-line-start) 0%, var(--app-green-banner-line-mid) 50%, var(--app-green-banner-line-end) 100%) !important;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    if theme_variant == "Uni":
+        st.markdown(
+            """
+        <style>
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"] {
+            background:
+                radial-gradient(circle at top right, rgba(29, 43, 70, 0.06), transparent 26%),
+                radial-gradient(circle at top left, rgba(185, 198, 216, 0.32), transparent 22%),
+                linear-gradient(180deg, var(--app-green-bg) 0%, var(--app-green-bg-soft) 100%) !important;
+        }
+        [data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #fafbfe 0%, #edf1f7 100%) !important;
+            border-right: 1px solid var(--app-green-border-strong) !important;
+        }
+        [data-testid="stSidebar"] .stButton > button,
+        [data-testid="stMain"] .stButton > button,
+        div[data-testid="stButton"] > button {
+            background: linear-gradient(180deg, #ffffff, #f1f4f8) !important;
+            color: var(--app-green-accent-text) !important;
+            border: 1px solid var(--app-green-border) !important;
+            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.06) !important;
+        }
+        [data-testid="stSidebar"] .stButton > button:hover,
+        [data-testid="stMain"] .stButton > button:hover,
+        div[data-testid="stButton"] > button:hover {
+            background: linear-gradient(180deg, #f6f8fc, #eaf0f7) !important;
+            color: var(--app-green-accent-hover) !important;
+            border-color: var(--app-green-border-strong) !important;
+            box-shadow: 0 10px 22px rgba(29, 43, 70, 0.10) !important;
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
+            background: var(--app-green-hover) !important;
+            border-color: var(--app-green-border) !important;
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] {
+            background: linear-gradient(180deg, #eef3f9, #e4ebf4) !important;
+            border-color: var(--app-green-border-strong) !important;
+            box-shadow: 0 6px 14px rgba(29, 43, 70, 0.08) !important;
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] p,
+        [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {
+            color: var(--app-green-accent-strong) !important;
+        }
+        [data-testid="stMetric"] {
+            background: linear-gradient(180deg, #ffffff, #f1f4f8) !important;
+            border: 1px solid var(--app-green-border) !important;
+            box-shadow: 0 10px 24px rgba(29, 43, 70, 0.06) !important;
+        }
+        [data-testid="stDataFrame"],
+        [data-testid="stDataEditor"] {
+            background: linear-gradient(180deg, #e4e9f0, #dbe3ed) !important;
+            border: 1px solid var(--app-green-border-strong) !important;
+            box-shadow: 0 14px 28px rgba(29, 43, 70, 0.10) !important;
+        }
+        [data-testid="stDataFrame"] th,
+        [data-testid="stDataEditor"] th {
+            background: linear-gradient(180deg, #31476f, #1d2b46) !important;
+            color: #eef3f9 !important;
+        }
+        [data-testid="stDataFrame"] button,
+        [data-testid="stDataFrame"] [role="button"],
+        [data-testid="stDataEditor"] button,
+        [data-testid="stDataEditor"] [role="button"],
+        [data-testid="stFileUploader"] button {
+            background: #f4f7fc !important;
+            color: var(--app-green-accent-text) !important;
+            border: 1px solid var(--app-green-border) !important;
+        }
+        [data-testid="stFileUploader"],
+        [data-testid="stExpander"] {
+            background: rgba(255, 255, 255, 0.95) !important;
+            border: 1px solid var(--app-green-border) !important;
+        }
+        [data-testid="stFileUploader"] * ,
+        [data-testid="stExpander"] summary {
+            color: var(--app-green-text) !important;
+        }
+        button[data-baseweb="tab"][aria-selected="true"] {
+            box-shadow: inset 0 -3px 0 #1d2b46 !important;
+        }
+        .app-busy-indicator {
+            border-color: var(--app-green-border-strong) !important;
+            background: rgba(249, 251, 254, 0.96) !important;
+            color: var(--app-green-accent-text) !important;
+            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.10) !important;
+        }
+        .tra-progress-step.active::before,
+        .tra-progress-step.complete::before,
+        .tra-progress-step.active .tra-progress-badge,
+        .tra-progress-step.complete .tra-progress-badge {
+            background: linear-gradient(90deg, #31476f, #1d2b46) !important;
+        }
+        .tra-source-option.primary {
+            background: linear-gradient(180deg, #f2f6fb, #e7edf5) !important;
+            border-color: var(--app-green-border-strong) !important;
+            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.08) !important;
+        }
+        </style>
+        """,
+            unsafe_allow_html=True,
+        )
 
 
 
@@ -4050,6 +4323,42 @@ def parse_text_key_value_pairs(text: str) -> dict[str, str]:
     return pairs
 
 
+def parse_stacked_key_value_pairs(text: str, alias_map: dict[str, str]) -> dict[str, str]:
+    lines = [clean_ticket_text(line) for line in clean_ticket_text(text).splitlines()]
+    normalized_aliases = {clean_extracted_value(key).lower(): value for key, value in alias_map.items()}
+    pairs: dict[str, str] = {}
+    for index, line in enumerate(lines):
+        key_candidate = clean_extracted_value(line).lower()
+        if not key_candidate or key_candidate not in normalized_aliases:
+            continue
+        for next_index in range(index + 1, len(lines)):
+            next_line = clean_ticket_text(lines[next_index])
+            next_key = clean_extracted_value(next_line).lower()
+            if not next_line:
+                continue
+            if next_key in normalized_aliases:
+                break
+            if ":" in next_line and len(next_line.split(":", 1)[0].strip()) < 50:
+                break
+            pairs[key_candidate] = clean_extracted_value(next_line)
+            break
+    return pairs
+
+
+def split_incident_datetime(value: str) -> tuple[str, str]:
+    cleaned = clean_extracted_value(value)
+    if not cleaned:
+        return "", ""
+    match = re.match(
+        r"^\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})[\s,]+(.+?)\s*$",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    if match:
+        return clean_extracted_value(match.group(1)), clean_extracted_value(match.group(2))
+    return cleaned, ""
+
+
 def maybe_set_field(field_map: dict[str, str], field_name: str, value: str) -> None:
     cleaned = clean_extracted_value(value)
     if cleaned and not clean_extracted_value(field_map.get(field_name, "")):
@@ -4058,15 +4367,17 @@ def maybe_set_field(field_map: dict[str, str], field_name: str, value: str) -> N
 
 def parse_general_ticket_fields(text: str) -> dict[str, str]:
     cleaned_text = clean_ticket_text(text)
-    key_value_pairs = parse_text_key_value_pairs(cleaned_text)
-    parsed: dict[str, str] = {field_name: "" for field_name, _ in TICKET_ASSISTANT_FIELDS}
-    for field_name, patterns in TICKET_ASSISTANT_FIELD_PATTERNS.items():
-        maybe_set_field(parsed, field_name, find_first_pattern(cleaned_text, patterns))
     alias_map = {
         "lsupd case number": "case_number",
+        "lsupd case number of incident (if known)": "case_number",
         "service request id": "service_request_id",
         "ticket number": "tdx_ticket_id",
         "tdx ticket id": "tdx_ticket_id",
+        "date/time of incident (approximate if not known)": "incident_datetime",
+        "date/time of incident": "incident_datetime",
+        "location of incident": "location",
+        "description": "issue_description",
+        "requestor": "name",
         "camera location": "camera_location",
         "asset id": "asset_id",
         "product model": "product_model",
@@ -4087,9 +4398,21 @@ def parse_general_ticket_fields(text: str) -> dict[str, str]:
         "time": "time",
         "name": "name",
     }
+    key_value_pairs = parse_text_key_value_pairs(cleaned_text)
+    key_value_pairs.update(parse_stacked_key_value_pairs(cleaned_text, alias_map))
+    parsed: dict[str, str] = {field_name: "" for field_name, _ in TICKET_ASSISTANT_FIELDS}
+    for field_name, patterns in TICKET_ASSISTANT_FIELD_PATTERNS.items():
+        maybe_set_field(parsed, field_name, find_first_pattern(cleaned_text, patterns))
     for key, field_name in alias_map.items():
         if key in key_value_pairs:
-            maybe_set_field(parsed, field_name, key_value_pairs[key])
+            if field_name == "incident_datetime":
+                incident_date, incident_time = split_incident_datetime(key_value_pairs[key])
+                maybe_set_field(parsed, "date", incident_date)
+                maybe_set_field(parsed, "time", incident_time)
+            else:
+                maybe_set_field(parsed, field_name, key_value_pairs[key])
+    if parsed.get("service_request_id") and not parsed.get("tdx_ticket_id"):
+        parsed["tdx_ticket_id"] = parsed["service_request_id"]
     return parsed
 
 
@@ -4455,15 +4778,26 @@ def extract_tdx_ticket_title(text: str) -> str:
 
 
 def extract_requestor_contact(text: str) -> tuple[str, str, str]:
-    block_match = re.search(
-        r"(?is)\bRequestor\b\s*(.+?)(?:\n\s*Attachments\b|\n\s*Read By\b|\n\s*LSU\b|\Z)",
-        clean_ticket_text(text),
-    )
-    block = block_match.group(1) if block_match else clean_ticket_text(text)
-    lines = [clean_ticket_text(line) for line in block.splitlines() if clean_ticket_text(line)]
-    name = ""
+    cleaned_text = clean_ticket_text(text)
+    direct_pairs = parse_stacked_key_value_pairs(cleaned_text, {"requestor": "name", "alternative contact": "alt_contact"})
+    name = clean_extracted_value(direct_pairs.get("requestor", ""))
     email = ""
     phone = ""
+    alt_contact = clean_extracted_value(direct_pairs.get("alternative contact", ""))
+    if alt_contact:
+        phone_match = re.search(r"(\+?1?\s*\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4})", alt_contact)
+        if phone_match:
+            phone = clean_ticket_text(phone_match.group(1))
+        if not name:
+            alt_name = clean_ticket_text(re.split(r",|\d{3}[\s\-]?\d{3}[\s\-]?\d{4}", alt_contact)[0])
+            if alt_name:
+                name = alt_name
+    block_match = re.search(
+        r"(?is)\bRequestor\b\s*(.+?)(?:\n\s*Attachments\b|\n\s*Read By\b|\n\s*LSU\b|\Z)",
+        cleaned_text,
+    )
+    block = block_match.group(1) if block_match else cleaned_text
+    lines = [clean_ticket_text(line) for line in block.splitlines() if clean_ticket_text(line)]
     for line in lines:
         if not email:
             email_match = re.search(r"\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b", line, flags=re.IGNORECASE)
@@ -4475,6 +4809,16 @@ def extract_requestor_contact(text: str) -> tuple[str, str, str]:
                 phone = clean_ticket_text(phone_match.group(1))
         if not name and line.lower() != "requestor" and "@" not in line and not re.search(r"\d{3}[\s\-]?\d{3}[\s\-]?\d{4}", line):
             name = line
+    posted_by_match = re.search(
+        r"(?im)^Posted By:\s*([^<\n\r]+?)(?:\s*<([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})>)?\s*$",
+        cleaned_text,
+        flags=re.IGNORECASE,
+    )
+    if posted_by_match:
+        if not name:
+            name = clean_ticket_text(posted_by_match.group(1))
+        if not email and posted_by_match.group(2):
+            email = clean_ticket_text(posted_by_match.group(2))
     return clean_extracted_value(name), clean_extracted_value(email), clean_extracted_value(phone)
 
 
@@ -5166,10 +5510,10 @@ def render_copy_button(text: str, button_label: str, component_key: str) -> None
         f"""
         <div style="display:flex; gap:10px; align-items:center;">
             <button id="{component_key}" {disabled_attr}
-                style="background:#FDD023;color:#2D1259;border:none;border-radius:8px;padding:0.6rem 1rem;font-weight:700;cursor:{cursor_style};opacity:{opacity};">
+                style="background:linear-gradient(180deg,#5d8667,#4f7a5b);color:#f7fbf7;border:1px solid #4f7a5b;border-radius:10px;padding:0.6rem 1rem;font-weight:700;cursor:{cursor_style};opacity:{opacity};box-shadow:0 8px 18px rgba(79,122,91,0.16);">
                 {html_escape(button_label)}
             </button>
-            <span id="{component_key}_msg" style="font-family:sans-serif;font-size:0.9rem;color:#d7c9f2;"></span>
+            <span id="{component_key}_msg" style="font-family:sans-serif;font-size:0.9rem;color:#5f7363;"></span>
         </div>
         <script>
         const btn = document.getElementById("{component_key}");
@@ -5357,7 +5701,7 @@ def generate_ticket_assistant_output_from_state(workflow: str, extracted_text: s
 def render_ticket_assistant_field_editor(workflow: str, compact_mode: bool = False) -> dict[str, str]:
     values: dict[str, str] = {}
     field_groups = [
-        ("Incident", ["date", "time", "location", "case_number", "service_request_id", "tdx_ticket_id", "name", "camera_name"]),
+        ("Incident", ["date", "time", "location", "case_number", "service_request_id", "name", "camera_name"]),
         ("Notes", ["issue_description", "actions_taken"]),
         ("Asset", ["camera_location", "asset_id", "product_model", "serial_number", "service_tag", "camera_ip"]),
         ("Network", ["camera_server", "failover_server", "camera_power_source", "its_switch_ip", "its_switch_name", "its_switch_port"]),
@@ -5377,7 +5721,7 @@ def render_ticket_assistant_field_editor(workflow: str, compact_mode: bool = Fal
     label_map = dict(TICKET_ASSISTANT_FIELDS)
     multiline_fields = {"location", "camera_location", "name", "issue_description", "actions_taken"}
     prioritized_groups = workflow_groups.get(workflow, {"Incident"})
-    compact_primary_fields = {"date", "time", "case_number", "service_request_id", "tdx_ticket_id"}
+    compact_primary_fields = {"date", "time", "case_number", "service_request_id"}
 
     def render_group(group_label: str, group_fields: list[str]) -> None:
         st.markdown(f'<div class="tra-section-label">{html_escape(group_label)}</div>', unsafe_allow_html=True)
@@ -5443,185 +5787,187 @@ def render_ticket_response_assistant() -> None:
         """
         <style>
         .tra-hero {
-            background: linear-gradient(180deg, rgba(24, 29, 38, 0.98), rgba(15, 19, 26, 0.98));
-            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,247,239,0.96));
+            border: 1px solid rgba(90, 128, 99, 0.14);
             border-radius: 18px;
-            padding: 0.95rem 1rem 0.95rem 1rem;
-            margin: 0.1rem 0 0.8rem 0;
-            box-shadow: none;
+            padding: 0.72rem 0.9rem 0.78rem 0.9rem;
+            margin: 0.05rem 0 0.55rem 0;
+            box-shadow: 0 10px 24px rgba(68, 97, 76, 0.06);
         }
         .tra-kicker {
-            color: #b796ff;
+            color: #6b806f;
             font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            margin-bottom: 0.45rem;
+            margin-bottom: 0.28rem;
         }
         .tra-hero-title {
-            font-size: 1.72rem;
+            font-size: 1.52rem;
             font-weight: 760;
             letter-spacing: -0.03em;
-            color: #f6f8fc;
+            color: #24362b;
             line-height: 1.05;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.22rem;
         }
         .tra-hero-sub {
-            color: #b4c0d3;
-            font-size: 0.97rem;
-            line-height: 1.5;
+            color: #627467;
+            font-size: 0.88rem;
+            line-height: 1.36;
             max-width: 54rem;
         }
         .tra-progress-shell {
-            margin: 0.75rem 0 0.1rem 0;
+            margin: 0.46rem 0 0.02rem 0;
         }
         .tra-progress-line {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.8rem;
+            gap: 0.6rem;
             align-items: start;
         }
         .tra-progress-step {
             position: relative;
-            padding-top: 0.15rem;
+            padding-top: 0.24rem;
         }
         .tra-progress-step::before {
             content: "";
             display: block;
-            height: 8px;
+            height: 7px;
             border-radius: 999px;
-            background: rgba(111, 120, 134, 0.26);
-            margin-bottom: 0.7rem;
+            background: var(--app-green-border);
+            margin-bottom: 0.48rem;
         }
         .tra-progress-step.active::before,
         .tra-progress-step.complete::before {
-            background: linear-gradient(90deg, rgba(157, 95, 255, 0.92), rgba(121, 68, 214, 0.92));
+            background: linear-gradient(90deg, var(--app-green-accent), var(--app-green-accent-strong));
         }
         .tra-progress-badge {
             position: absolute;
-            top: -0.05rem;
-            left: 0.75rem;
-            width: 2rem;
-            height: 2rem;
+            top: -0.42rem;
+            left: 0.62rem;
+            width: 1.8rem;
+            height: 1.8rem;
             border-radius: 999px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(52, 58, 67, 0.95);
-            border: 1px solid rgba(126, 137, 154, 0.3);
-            color: #c7d2e3;
-            font-size: 0.9rem;
+            background: var(--app-green-surface-3);
+            border: 1px solid var(--app-green-border);
+            color: var(--app-green-muted);
+            font-size: 0.82rem;
             font-weight: 800;
         }
         .tra-progress-step.active .tra-progress-badge,
         .tra-progress-step.complete .tra-progress-badge {
-            background: linear-gradient(180deg, rgba(154, 97, 255, 1), rgba(113, 65, 208, 1));
-            border-color: rgba(188, 154, 255, 0.65);
+            background: linear-gradient(180deg, var(--app-green-accent), var(--app-green-accent-strong));
+            border-color: var(--app-green-border-strong);
             color: #ffffff;
-            box-shadow: 0 10px 24px rgba(98, 57, 180, 0.3);
+            box-shadow: 0 10px 24px rgba(29, 43, 70, 0.18);
         }
         .tra-progress-label {
-            color: #f1f4fb;
-            font-size: 0.96rem;
+            color: #24362b;
+            font-size: 0.88rem;
             font-weight: 680;
             line-height: 1.18;
             padding-left: 0.15rem;
+            margin-top: 0.12rem;
         }
         .tra-progress-copy {
-            color: #909eb2;
-            font-size: 0.82rem;
-            line-height: 1.32;
-            margin-top: 0.14rem;
+            color: #6a7d6e;
+            font-size: 0.75rem;
+            line-height: 1.24;
+            margin-top: 0.08rem;
             padding-left: 0.15rem;
         }
         .tra-card {
-            background: linear-gradient(180deg, rgba(24, 29, 38, 0.96), rgba(17, 21, 29, 0.98));
-            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,247,239,0.96));
+            border: 1px solid rgba(90, 128, 99, 0.14);
             border-radius: 18px;
-            padding: 0.85rem 0.9rem 0.9rem 0.9rem;
-            margin-bottom: 0.8rem;
-            box-shadow: none;
+            padding: 0.68rem 0.82rem 0.75rem 0.82rem;
+            margin-bottom: 0.55rem;
+            box-shadow: 0 10px 24px rgba(68, 97, 76, 0.05);
         }
         .tra-card-title {
             font-size: 0.76rem;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.12em;
-            color: #b796ff;
-            margin-bottom: 0.7rem;
+            color: #6b806f;
+            margin-bottom: 0.46rem;
         }
         .tra-card-headline {
-            color: #f5f7fb;
-            font-size: 1.18rem;
+            color: #24362b;
+            font-size: 1.04rem;
             font-weight: 720;
             line-height: 1.18;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.16rem;
         }
         .tra-card-subcopy {
-            color: #a5b2c5;
-            font-size: 0.84rem;
-            line-height: 1.42;
-            margin-bottom: 0.8rem;
+            color: #627467;
+            font-size: 0.78rem;
+            line-height: 1.32;
+            margin-bottom: 0.55rem;
         }
         .tra-source-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.65rem;
-            margin: 0 0 0.75rem 0;
+            gap: 0.55rem;
+            margin: 0 0 0.55rem 0;
             align-items: stretch;
         }
         .tra-source-option {
-            background: linear-gradient(180deg, rgba(34, 40, 50, 0.94), rgba(27, 33, 41, 0.98));
-            border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(180deg, rgba(250,252,249,0.98), rgba(239,245,238,0.98));
+            border: 1px solid rgba(90, 128, 99, 0.12);
             border-radius: 16px;
-            padding: 0.85rem;
-            min-height: 7.3rem;
+            padding: 0.68rem;
+            min-height: 5.5rem;
             box-shadow: none;
         }
         .tra-source-option.primary {
-            background: linear-gradient(180deg, rgba(53, 62, 79, 0.98), rgba(34, 42, 54, 0.98));
-            border-color: rgba(124, 140, 255, 0.34);
+            background: linear-gradient(180deg, rgba(237,246,239,0.98), rgba(228,240,229,0.98));
+            border-color: var(--app-green-border-strong);
+            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.08);
         }
         .tra-source-icon {
-            font-size: 2rem;
+            font-size: 1.55rem;
             line-height: 1;
-            margin-bottom: 0.7rem;
+            margin-bottom: 0.42rem;
         }
         .tra-source-title {
-            color: #f5f7fb;
-            font-size: 1.04rem;
+            color: #24362b;
+            font-size: 0.94rem;
             font-weight: 700;
             line-height: 1.18;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.22rem;
         }
         .tra-source-copy {
-            color: #a9b4c6;
-            font-size: 0.84rem;
-            line-height: 1.42;
+            color: #627467;
+            font-size: 0.77rem;
+            line-height: 1.28;
         }
         .tra-meta-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 0.5rem;
-            margin: 0.15rem 0 0.7rem 0;
+            margin: 0.08rem 0 0.45rem 0;
         }
         .tra-meta-chip {
-            background: rgba(33, 39, 48, 0.94);
-            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(248, 251, 246, 0.98);
+            border: 1px solid rgba(90, 128, 99, 0.12);
             border-radius: 14px;
-            padding: 0.62rem 0.72rem;
+            padding: 0.5rem 0.62rem;
         }
         .tra-meta-label {
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: #92a3b8;
+            color: #6a7d6e;
             margin-bottom: 0.18rem;
         }
         .tra-meta-value {
             font-size: 0.9rem;
             font-weight: 700;
-            color: #eef3fb;
+            color: #24362b;
             word-break: break-word;
         }
         .tra-section-label {
@@ -5629,33 +5975,33 @@ def render_ticket_response_assistant() -> None:
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: #8ea0b4;
-            margin: 0.15rem 0 0.3rem 0;
+            color: #6a7d6e;
+            margin: 0.12rem 0 0.22rem 0;
         }
         .tra-field-label {
             font-size: 0.67rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: #95a5b8;
+            color: #6a7d6e;
             margin: 0 0 0.18rem 0.02rem;
         }
         .tra-upload-hint {
-            color: #8ea0b4;
-            font-size: 0.8rem;
-            line-height: 1.35;
-            margin-top: 0.35rem;
+            color: #627467;
+            font-size: 0.74rem;
+            line-height: 1.24;
+            margin-top: 0.18rem;
         }
         .tra-upload-shell {
             display: flex;
             flex-direction: column;
         }
         .tra-upload-shell div[data-testid="stFileUploader"] {
-            min-height: 248px;
+            min-height: 178px;
         }
         .tra-upload-shell div[data-testid="stFileUploader"] section {
-            min-height: 248px;
-            padding: 0.65rem 0.7rem 0.7rem 0.7rem;
+            min-height: 178px;
+            padding: 0.48rem 0.58rem 0.56rem 0.58rem;
             border-radius: 18px;
         }
         @media (max-width: 980px) {
@@ -5665,24 +6011,24 @@ def render_ticket_response_assistant() -> None:
             }
         }
         div[data-testid="stTextInput"] {
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.2rem;
         }
         div[data-testid="stTextInput"] input {
             border-radius: 8px !important;
-            min-height: 2.2rem !important;
-            padding-top: 0.25rem !important;
-            padding-bottom: 0.25rem !important;
+            min-height: 2rem !important;
+            padding-top: 0.18rem !important;
+            padding-bottom: 0.18rem !important;
         }
         div[data-testid="stTextArea"] {
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.25rem;
         }
         div[data-testid="stTextArea"] textarea {
             border-radius: 8px !important;
-            padding-top: 0.4rem !important;
-            padding-bottom: 0.4rem !important;
+            padding-top: 0.3rem !important;
+            padding-bottom: 0.3rem !important;
         }
         div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
-            gap: 0.2rem;
+            gap: 0.12rem;
         }
         div[data-testid="stTextArea"] textarea[disabled] {
             opacity: 0.98;
@@ -5744,7 +6090,7 @@ def render_ticket_response_assistant() -> None:
         unsafe_allow_html=True,
     )
 
-    left_col, right_col = st.columns([1.05, 0.95], gap="large")
+    left_col, right_col = st.columns([1.03, 0.97], gap="medium")
 
     with left_col:
         st.markdown(
@@ -5770,13 +6116,13 @@ def render_ticket_response_assistant() -> None:
         )
         st.selectbox("Input Type Selector", TICKET_ASSISTANT_WORKFLOWS, key=workflow_key)
         st.session_state["tra_workflow"] = st.session_state.get(workflow_key, "Auto Detect")
-        source_cols = st.columns([1.65, 0.9], gap="medium")
+        source_cols = st.columns([1.72, 0.88], gap="small")
         with source_cols[0]:
             st.markdown('<div class="tra-field-label">Paste Email, Ticket Text, or Asset Record</div>', unsafe_allow_html=True)
             st.text_area(
                 "Paste Email, Ticket Text, or Asset Record",
                 key=raw_input_key,
-                height=260,
+                height=215,
                 placeholder="Paste copied email text, ticket details, payment confirmation text, asset records, or case details here.",
                 label_visibility="collapsed",
             )
@@ -5844,7 +6190,7 @@ def render_ticket_response_assistant() -> None:
             st.text_area(
                 "Review and edit extracted text before generating output",
                 key=extracted_text_key,
-                height=300,
+                height=230,
                 placeholder="Processed text will appear here. You can edit it before extracting fields or generating the final response.",
             )
 
@@ -5953,7 +6299,7 @@ def render_ticket_response_assistant() -> None:
         missing_fields = st.session_state.get("tra_last_missing_fields", [])
         if missing_fields:
             st.warning("Missing key fields: " + ", ".join(missing_fields))
-        st.text_area("Final Output", key="tra_output_editor", height=280, placeholder="Generated response text will appear here. You can edit it before copying or downloading.")
+        st.text_area("Final Output", key="tra_output_editor", height=230, placeholder="Generated response text will appear here. You can edit it before copying or downloading.")
         copy_cols = st.columns(3)
         with copy_cols[0]:
             render_copy_button(editor_text, "Copy to Clipboard", "tra_copy_output")
@@ -5986,7 +6332,7 @@ def render_ticket_response_assistant() -> None:
                         history_labels.append(f"{item['workflow']} | {item['created_at']}")
                 selected_history = st.selectbox("Recent Output History", options=history_labels, index=0, key="tra_history_selector")
                 selected_idx = history_labels.index(selected_history)
-                st.text_area("History Preview", value=history[selected_idx]["output"], height=160, disabled=True)
+                st.text_area("History Preview", value=history[selected_idx]["output"], height=120, disabled=True)
 def extract_camera_and_failover_servers(row: pd.Series) -> tuple[str, str]:
 
     server_blob = row_first_non_empty(row, ["Servers", "Server Name"])
@@ -7506,6 +7852,26 @@ area_help = {
     "Ticket Response Assistant": "Turn pasted ticket material into structured responses.",
     "Camera Installation Builder": "Build workbook-driven camera installation packages.",
 }
+
+overview_nav_target = st.query_params.get("overview_nav", "")
+if overview_nav_target == "action_queue":
+    st.session_state["app_workspace"] = "Health Status"
+    st.session_state["app_area_health"] = "Action Queue"
+    try:
+        del st.query_params["overview_nav"]
+    except Exception:
+        st.query_params.clear()
+
+selected_theme_variant = st.sidebar.radio(
+    "Color Scheme",
+    options=list(THEME_VARIANTS.keys()),
+    key="app_theme_variant",
+    horizontal=True,
+)
+if selected_theme_variant != theme_variant:
+    st.session_state.app_theme_variant = selected_theme_variant
+    st.rerun()
+st.sidebar.caption("Switch between the current sage theme and a cooler slate-accented theme.")
 
 selected_workspace = st.sidebar.radio("Workspace", workspace_options, key="app_workspace")
 st.sidebar.caption(workspace_help.get(selected_workspace, ""))
@@ -10602,6 +10968,8 @@ def render_data_editor(
 
     selected_optional_cols_override: list[str] | None = None,
 
+    table_height: int = 550,
+
 ):
 
     order = preferred_order if preferred_order is not None else preferred_cols
@@ -11047,7 +11415,7 @@ def render_data_editor(
         grid_response = AgGrid(
             display_df,
             gridOptions=gb.build(),
-            height=550,
+            height=table_height,
             theme="streamlit",
             key=f"editor_{key_suffix}",
             data_return_mode=DataReturnMode.AS_INPUT,
@@ -11066,7 +11434,7 @@ def render_data_editor(
 
             width="stretch",
 
-            height=550,
+            height=table_height,
 
             hide_index=True,
 
@@ -11420,28 +11788,28 @@ render_html(
         margin: 0.35rem 0 0.4rem 0;
         padding: 1rem 1.05rem;
         border-radius: 18px;
-        border: 1px solid rgba(214, 178, 76, 0.18);
+        border: 1px solid rgba(90, 128, 99, 0.14);
         background:
-            linear-gradient(180deg, rgba(25, 31, 40, 0.94), rgba(18, 22, 28, 0.98)),
-            radial-gradient(circle at top right, rgba(107, 78, 162, 0.18), transparent 32%);
-        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.16);
+            linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 247, 239, 0.96)),
+            radial-gradient(circle at top right, rgba(122, 166, 111, 0.12), transparent 36%);
+        box-shadow: 0 12px 28px rgba(68, 97, 76, 0.08);
     }
     .ops-command-kicker {
         font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.12em;
-        color: #9aabc0;
+        color: #6b806f;
         margin-bottom: 0.25rem;
         font-weight: 700;
     }
     .ops-command-title {
         font-size: 1.2rem;
         font-weight: 800;
-        color: #eef3fb;
+        color: #24362b;
         line-height: 1.1;
     }
     .ops-command-subtitle {
-        color: #aebaca;
+        color: #627467;
         font-size: 0.93rem;
         line-height: 1.45;
         max-width: 58rem;
@@ -11453,13 +11821,13 @@ render_html(
         gap: 0.7rem;
     }
     .ops-command-card {
-        background: linear-gradient(180deg, rgba(36, 46, 58, 0.92), rgba(28, 36, 47, 0.94));
-        border: 1px solid rgba(111, 128, 150, 0.18);
+        background: linear-gradient(180deg, rgba(252, 253, 251, 0.98), rgba(239, 245, 238, 0.98));
+        border: 1px solid rgba(90, 128, 99, 0.12);
         border-radius: 14px;
         padding: 0.8rem 0.85rem 0.72rem 0.85rem;
     }
     .ops-command-label {
-        color: #97a8bc;
+        color: #6b806f;
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -11467,7 +11835,7 @@ render_html(
         margin-bottom: 0.24rem;
     }
     .ops-command-value {
-        color: #f4f7fb;
+        color: #24362b;
         font-size: 1.35rem;
         font-weight: 800;
         line-height: 1.05;
@@ -11484,9 +11852,9 @@ render_html(
         min-height: 2rem;
         padding: 0.38rem 0.68rem;
         border-radius: 999px;
-        border: 1px solid rgba(111, 128, 150, 0.18);
-        background: rgba(33, 41, 53, 0.88);
-        color: #d6dfea;
+        border: 1px solid rgba(90, 128, 99, 0.16);
+        background: rgba(248, 251, 246, 0.98);
+        color: #506456;
         font-size: 0.78rem;
         font-weight: 600;
     }
@@ -11503,7 +11871,22 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
     if ticket_subset.empty:
 
-        st.info("No queued or open tickets right now.")
+        st.markdown(
+            """
+            <div style="
+                max-width: 36rem;
+                padding: 0.85rem 1rem;
+                border-radius: 14px;
+                border: 1px solid rgba(90, 128, 99, 0.16);
+                background: linear-gradient(180deg, rgba(244,248,244,0.96), rgba(237,243,236,0.96));
+                color: #526759;
+                box-shadow: 0 8px 18px rgba(68, 97, 76, 0.04);
+            ">
+                No queued or open tickets right now.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         return
 
@@ -11545,7 +11928,7 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
         width="stretch",
 
-        height=460,
+        height=410,
 
         hide_index=True,
 
@@ -11657,6 +12040,7 @@ def render_retention_tab(retention_subset: pd.DataFrame):
             "Location",
             "Ticket ID",
         ],
+        table_height=420,
     )
 
 
@@ -11753,7 +12137,6 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
 
 
-    st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
     granularity = st.radio(
 
         "Trend Granularity",
@@ -11776,17 +12159,17 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
 
 
-    chart_col_left, chart_col_right = st.columns(2, gap="large")
+    chart_col_left, chart_col_right = st.columns(2, gap="medium")
 
     uptime_chart_df = trend_df.set_index("Period")[["Uptime %", "Downtime %"]]
     with chart_col_left:
         st.caption("Trend view")
-        st.line_chart(uptime_chart_df, height=300)
+        st.line_chart(uptime_chart_df, height=230)
 
     changes_chart_df = trend_df.set_index("Period")[["State Changes"]]
     with chart_col_right:
         st.caption("Change activity")
-        st.bar_chart(changes_chart_df, height=300)
+        st.bar_chart(changes_chart_df, height=230)
 
 
 
@@ -11805,11 +12188,8 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
         "connectivity_trends",
         preferred_order=table_cols,
         default_visible_cols=table_cols,
+        table_height=360,
     )
-
-
-
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
     st.caption("Per-camera uptime leaderboard (within selected lookback window)")
 
@@ -11873,7 +12253,7 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
 
 
-    leader_col, lagger_col = st.columns(2)
+    leader_col, lagger_col = st.columns(2, gap="small")
 
     with leader_col:
 
@@ -11884,6 +12264,7 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
             "top_uptime_leaderboard",
             preferred_order=leaderboard_cols,
             default_visible_cols=leaderboard_cols,
+            table_height=320,
         )
 
     with lagger_col:
@@ -11895,6 +12276,7 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
             "lowest_uptime_leaderboard",
             preferred_order=leaderboard_cols,
             default_visible_cols=leaderboard_cols,
+            table_height=320,
         )
 
 
@@ -11902,265 +12284,9 @@ def render_trends_tab(devices_subset: pd.DataFrame, transitions_subset: pd.DataF
 
 
 def render_overview_section() -> None:
+    render_overview_theme()
 
-    render_html(
-        """
-        <style>
-        .overview-surface,
-        .overview-surface * {
-            color-scheme: light !important;
-        }
-        .overview-surface {
-            margin-top: -1.2rem;
-            padding: 0.02rem 0 0.08rem 0;
-            background: linear-gradient(180deg, #f7faf5 0%, #f1f6ef 100%);
-            border-radius: 18px;
-        }
-        .overview-surface .health-intro-card {
-            margin: 0 !important;
-            padding: 0 0 0.12rem 0 !important;
-        }
-        .overview-surface .health-intro-eyebrow {
-            color: #6a7f70 !important;
-        }
-        .overview-surface .health-intro-title {
-            color: #22372b !important;
-        }
-        .overview-surface .health-intro-subtitle {
-            color: #607362 !important;
-            max-width: 50rem;
-        }
-        .overview-surface [data-testid="stMetric"],
-        .overview-surface [data-testid="stMetric"] > div {
-            background: linear-gradient(180deg, #fdfefd, #f1f6ef) !important;
-            border: 1px solid rgba(106, 136, 112, 0.16) !important;
-            border-radius: 14px !important;
-            padding: 0.42rem 0.5rem !important;
-            box-shadow: none !important;
-        }
-        .overview-surface [data-testid="stMetricLabel"] > div {
-            color: #6a7f70 !important;
-            font-size: 0.64rem !important;
-        }
-        .overview-surface [data-testid="stMetricValue"] > div {
-            color: #21352a !important;
-            font-size: 1.05rem !important;
-        }
-        .overview-surface .camera-search-bar-label {
-            color: #617764 !important;
-            font-size: 0.66rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            margin: 0 0 0.06rem 0.02rem;
-        }
-        .overview-surface div[data-testid="stTextInput"] input {
-            background: #fcfefb !important;
-            color: #20372a !important;
-            border: 1px solid rgba(106, 136, 112, 0.18) !important;
-            border-radius: 12px !important;
-            box-shadow: none !important;
-        }
-        .overview-surface div[data-testid="stButton"] > button[kind="primary"] {
-            background: #4f7a5b !important;
-            border: 1px solid #4f7a5b !important;
-            color: #f6fbf7 !important;
-            border-radius: 999px !important;
-            min-height: 36px !important;
-            box-shadow: none !important;
-        }
-        .overview-surface div[data-testid="stButton"] > button[kind="primary"] * {
-            color: #f6fbf7 !important;
-        }
-        .overview-surface div[data-testid="stButton"] > button[kind="secondary"] {
-            background: #eef4ee !important;
-            border: 1px solid rgba(106, 136, 112, 0.16) !important;
-            color: #2e4b36 !important;
-            border-radius: 999px !important;
-            min-height: 36px !important;
-            box-shadow: none !important;
-        }
-        .overview-surface div[data-testid="stButton"] > button[kind="secondary"] * {
-            color: #2e4b36 !important;
-        }
-        .overview-surface div[data-testid="stButton"] > button:hover {
-            transform: none !important;
-            box-shadow: none !important;
-        }
-        .overview-surface [data-testid="stDataFrame"],
-        .overview-surface [data-testid="stDataEditor"] {
-            padding: 0 !important;
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        .overview-surface [data-testid="stDataFrame"] > div,
-        .overview-surface [data-testid="stDataEditor"] > div {
-            background: #fbfdfb !important;
-            border: 1px solid rgba(106, 136, 112, 0.16) !important;
-            border-radius: 14px !important;
-            box-shadow: none !important;
-        }
-        .overview-surface [data-testid="stDataFrame"] th,
-        .overview-surface [data-testid="stDataEditor"] th {
-            background: #eef4ee !important;
-            color: #4b6753 !important;
-            border-bottom: 1px solid rgba(106, 136, 112, 0.14) !important;
-        }
-        .overview-surface [data-testid="stDataFrame"] tr:nth-child(even),
-        .overview-surface [data-testid="stDataEditor"] tr:nth-child(even) {
-            background: #f8fbf8 !important;
-        }
-        .overview-surface [data-testid="stDataFrame"] tr:hover,
-        .overview-surface [data-testid="stDataEditor"] tr:hover {
-            background: #eef6ef !important;
-        }
-        .overview-surface .stMarkdown h3 {
-            margin: 0.02rem 0 0.12rem 0 !important;
-            color: #254031 !important;
-        }
-        .overview-surface .stCaption {
-            margin-bottom: 0.03rem !important;
-            color: #637665 !important;
-        }
-        .overview-surface [data-testid="stHorizontalBlock"] {
-            row-gap: 0.06rem !important;
-        }
-        .overview-surface .ops-snapshot-metric-card {
-            background: linear-gradient(180deg, #fcfefc, #f1f6ef) !important;
-            border: 1px solid rgba(106, 136, 112, 0.14) !important;
-            box-shadow: none !important;
-        }
-        .overview-surface .ops-snapshot-metric-card--priority {
-            background: linear-gradient(180deg, #edf6ef, #e6f1e8) !important;
-            border: 1px solid rgba(79, 122, 91, 0.24) !important;
-        }
-        .overview-surface .ops-snapshot-metric-eyebrow,
-        .overview-surface .ops-snapshot-metric-label {
-            color: #5f7463 !important;
-        }
-        .overview-surface .ops-snapshot-metric-value,
-        .overview-surface .ops-snapshot-metric-card--priority .ops-snapshot-metric-value {
-            color: #21352a !important;
-        }
-        .overview-surface .ops-snapshot-chart-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div {
-            background: linear-gradient(180deg, #fcfefc, #f2f7f0) !important;
-            border: 1px solid rgba(106, 136, 112, 0.14) !important;
-            box-shadow: none !important;
-        }
-        .overview-surface .ops-chart-shell {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        .overview-surface .ops-chart-card-title {
-            color: #264131 !important;
-        }
-        .overview-surface .ops-chart-ring-center {
-            background: radial-gradient(circle at 32% 25%, #ffffff, #eef4ee) !important;
-            border: 1px solid rgba(106, 136, 112, 0.14) !important;
-        }
-        .overview-surface .ops-chart-ring-value {
-            color: #264131 !important;
-        }
-        .overview-surface .ops-chart-ring-label,
-        .overview-surface .ops-chart-legend-label,
-        .overview-surface .ops-chart-legend-count {
-            color: #617664 !important;
-        }
-        .overview-surface .ops-chart-legend-swatch {
-            box-shadow: none !important;
-        }
-        .overview-surface [data-testid="stMetric"],
-        .overview-surface [data-testid="stMetric"] > div,
-        .overview-surface [data-testid="stMetric"] [data-testid="stMetricLabel"],
-        .overview-surface [data-testid="stMetric"] [data-testid="stMetricValue"] {
-            background: linear-gradient(180deg, #fdfefd, #f1f6ef) !important;
-            color: #21352a !important;
-            border-color: rgba(106, 136, 112, 0.16) !important;
-            box-shadow: none !important;
-        }
-        .overview-surface .ops-snapshot-metric-card,
-        .overview-surface .ops-snapshot-chart-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div,
-        .overview-surface .ops-chart-shell,
-        .overview-surface .ops-chart-ring-center {
-            background: #fdfefd !important;
-            background-image: none !important;
-            color: #21352a !important;
-            border-color: rgba(106, 136, 112, 0.14) !important;
-            box-shadow: none !important;
-        }
-        .overview-surface .ops-chart-card-title,
-        .overview-surface .ops-chart-ring-value,
-        .overview-surface .ops-chart-ring-label,
-        .overview-surface .ops-chart-legend-label,
-        .overview-surface .ops-chart-legend-count,
-        .overview-surface .ops-snapshot-metric-eyebrow,
-        .overview-surface .ops-snapshot-metric-label,
-        .overview-surface .ops-snapshot-metric-value {
-            color: #294234 !important;
-        }
-        .overview-surface [data-testid="stButton"] > button,
-        .overview-surface [data-testid="stButton"] > button * {
-            box-shadow: none !important;
-        }
-        .overview-surface [data-testid="stButton"] > button[kind="primary"],
-        .overview-surface [data-testid="stButton"] > button[kind="primary"] * {
-            background: #4f7a5b !important;
-            color: #f7fbf7 !important;
-            border-color: #4f7a5b !important;
-        }
-        .overview-surface [data-testid="stButton"] > button[kind="secondary"],
-        .overview-surface [data-testid="stButton"] > button[kind="secondary"] * {
-            background: #eef4ee !important;
-            color: #294234 !important;
-            border-color: rgba(106, 136, 112, 0.16) !important;
-        }
-        .overview-surface [data-testid="stTextInput"] input,
-        .overview-surface [data-testid="stPopover"] button,
-        .overview-surface [data-baseweb="popover"] * {
-            background: #fcfefb !important;
-            color: #21352a !important;
-            border-color: rgba(106, 136, 112, 0.18) !important;
-        }
-        .overview-surface [data-testid="stDataEditor"],
-        .overview-surface [data-testid="stDataEditor"] > div,
-        .overview-surface [data-testid="stDataFrame"],
-        .overview-surface [data-testid="stDataFrame"] > div {
-            background: #fbfdfb !important;
-            color: #21352a !important;
-            border-color: rgba(106, 136, 112, 0.16) !important;
-            box-shadow: none !important;
-        }
-        .overview-surface [data-testid="stDataEditor"] th,
-        .overview-surface [data-testid="stDataFrame"] th,
-        .overview-surface [data-testid="stDataEditor"] td,
-        .overview-surface [data-testid="stDataFrame"] td,
-        .overview-surface [data-testid="stDataEditor"] div,
-        .overview-surface [data-testid="stDataFrame"] div {
-            color: #294234 !important;
-        }
-        .overview-surface [data-testid="stDataEditor"] th,
-        .overview-surface [data-testid="stDataFrame"] th {
-            background: #eef4ee !important;
-            border-bottom: 1px solid rgba(106, 136, 112, 0.14) !important;
-        }
-        </style>
-        <div class="overview-surface">
-        """
-    )
-
-    render_health_section_intro(
-        "Health Overview",
-        "Use the dashboard to scan current state, then work from the inventory below for lookups, spot checks, and focused filtering.",
-    )
-
-    render_operations_snapshot(
-        devices_subset=filtered_devices,
-        tickets_subset=tickets_df,
-        retention_enabled=retention_available,
-    )
-
+    overview_scope_key = st.session_state.get("health_scope_mode", "unique")
     scope_labels = {
         "unique": f"Devices ({df_devices['physical_key'].nunique():,})",
         "export": f"All Views ({len(df_views):,})",
@@ -12168,67 +12294,209 @@ def render_overview_section() -> None:
         "axis": f"Axis ({len(df_devices[df_devices['Brand'] == 'Axis']):,})",
         "other": f"Other ({len(df_devices[df_devices['Brand'].isin(['Other', 'Unknown'])]):,})",
     }
+
+    overview_issue_mask = compute_action_required_mask(filtered_devices, use_ping_results=False)
+    overview_issue_subset = filtered_devices.loc[overview_issue_mask].copy()
+    scoped_keys = set(filtered_devices["key"].astype(str).tolist()) if "key" in filtered_devices.columns else set()
+    scoped_open_tickets = tickets_df[
+        tickets_df["ticket_state"].eq("Open")
+        & tickets_df["key"].astype(str).isin(scoped_keys)
+    ].copy() if {"ticket_state", "key"}.issubset(tickets_df.columns) else pd.DataFrame()
+    search_scope_label = "Views" if st.session_state.get("view_mode", "devices") == "views" else "Devices"
+
+    render_overview_header(
+        scope_label=scope_labels.get(overview_scope_key, scope_labels["unique"]),
+        device_count=len(filtered_devices),
+        issue_count=len(overview_issue_subset),
+        view_mode=search_scope_label,
+    )
+
+    retention_metric_note = "Retention OK not loaded"
+    retention_metric_value = "N/A"
+    if retention_available and "Retention OK" in filtered_devices.columns:
+        retention_violations = int((~filtered_devices["Retention OK"].fillna(False)).sum())
+        retention_metric_value = f"{retention_violations:,}"
+        retention_metric_note = "Retention exceptions in scope"
+    elif "Flaps (7d)" in filtered_devices.columns:
+        flapping_count = int((pd.to_numeric(filtered_devices["Flaps (7d)"], errors="coerce").fillna(0) > 0).sum())
+        retention_metric_value = f"{flapping_count:,}"
+        retention_metric_note = "Devices with 7-day flaps"
+
+    ping_exception_count = 0
+    if "Ping Status" in overview_issue_subset.columns:
+        issue_ping = overview_issue_subset["Ping Status"].fillna("").astype(str).str.lower()
+        ping_exception_count = int(issue_ping.str.contains("not pingable|ping error|no ip|invalid ip", na=False).sum())
+
+    render_overview_metric_cards(
+        [
+            {
+                "label": "Devices In Scope",
+                "value": f"{len(filtered_devices):,}",
+                "note": "Current filtered device set",
+            },
+            {
+                "label": "Needs Attention",
+                "value": f"{len(overview_issue_subset):,}",
+                "note": "Offline, visible-offline, or error-driven",
+                "priority": True,
+                "href": "?overview_nav=action_queue",
+            },
+            {
+                "label": "Open Tickets",
+                "value": f"{len(scoped_open_tickets):,}",
+                "note": f"{ping_exception_count:,} hard ping exceptions",
+            },
+            {
+                "label": "Retention / Stability",
+                "value": retention_metric_value,
+                "note": retention_metric_note,
+            },
+        ]
+    )
+
+    is_uni_theme = theme_variant == "Uni"
+    overview_location_palette = (
+        ["#1D2B46", "#31476F", "#476088", "#60779D", "#7A90B1", "#95A8C4", "#B2C0D6", "#D0D9E6", "#E3EAF2"]
+        if is_uni_theme
+        else OVERVIEW_GREENS
+    )
+    health_color_map = (
+        {
+            "Online": "#31476F",
+            "Offline": "#E4545D",
+            "Offline (visible)": "#8DA2C0",
+            "Unknown": "#B5C0D2",
+        }
+        if is_uni_theme
+        else {
+            "Online": "#5C9071",
+            "Offline": "#B08A72",
+            "Offline (visible)": "#C2A18D",
+            "Unknown": "#91A39A",
+        }
+    )
+    ping_color_map = (
+        {
+            "Pingable": "#31476F",
+            "Do Not Ping": "#E4545D",
+            "Pending / Unknown": "#8DA2C0",
+        }
+        if is_uni_theme
+        else {
+            "Pingable": "#5C9071",
+            "Do Not Ping": "#B08A72",
+            "Pending / Unknown": "#91A39A",
+        }
+    )
+
+    health_col_name = "Health State" if "Health State" in filtered_devices.columns else ("Health" if "Health" in filtered_devices.columns else None)
+    health_counts = pd.Series(dtype="int64")
+    if health_col_name:
+        health_counts = (
+            filtered_devices[health_col_name]
+            .fillna("Unknown")
+            .astype(str)
+            .str.replace(r"<[^>]+>", "", regex=True)
+            .replace({"Offline (but still visible)": "Offline (visible)"})
+            .replace({"": "Unknown"})
+            .value_counts()
+            .reindex(["Offline", "Offline (visible)", "Online", "Unknown"], fill_value=0)
+        )
+
+    location_counts = pd.Series(dtype="int64")
+    if "Location" in overview_issue_subset.columns:
+        location_counts = (
+            overview_issue_subset["Location"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .replace("", "Unknown")
+            .value_counts()
+            .head(8)
+        )
+
+    ping_counts = pd.Series(dtype="int64")
+    if "Ping Status" in overview_issue_subset.columns:
+        ping_text = overview_issue_subset["Ping Status"].fillna("").astype(str).str.lower()
+        pingable_mask = ping_text.str.contains("pingable", na=False) & ~ping_text.str.contains("not pingable", na=False)
+        not_pingable_mask = ping_text.str.contains("not pingable|ping error|no ip|invalid ip", na=False)
+        pending_mask = ~(pingable_mask | not_pingable_mask)
+        ping_counts = pd.Series(
+            {
+                "Pingable": int(pingable_mask.sum()),
+                "Do Not Ping": int(not_pingable_mask.sum()),
+                "Pending / Unknown": int(pending_mask.sum()),
+            }
+        )
+
+    render_overview_section_kicker("Snapshot Charts")
+    chart_left, chart_middle, chart_right = st.columns(3, gap="medium")
+    with chart_left:
+        render_overview_chart_card(
+            title="Health Mix",
+            subtitle="Current state distribution for the filtered device set.",
+            data=health_counts,
+            color_map=health_color_map,
+            empty_message="No health data in the current scope.",
+        )
+    with chart_middle:
+        render_overview_chart_card(
+            title="Top Attention Locations",
+            subtitle="Where the current problem devices are clustering.",
+            data=location_counts,
+            color_map={label: overview_location_palette[index % len(overview_location_palette)] for index, label in enumerate(location_counts.index.astype(str).tolist())},
+            empty_message="No issue locations in the current scope.",
+            shade_by_value=True,
+        )
+    with chart_right:
+        render_overview_chart_card(
+            title="Ping Status",
+            subtitle="Live ping posture for the devices that need attention.",
+            data=ping_counts,
+            color_map=ping_color_map,
+            empty_message="No ping results are available in the current scope.",
+        )
+
+    render_overview_section_kicker("Inventory Controls")
+    render_html('<div class="overview-shortcuts-row"></div>')
+
+    def handle_scope_click(s_key):
+        st.session_state["health_scope_mode"] = s_key
+        on_metric_click(s_key)
+
     scope_cols = st.columns(5, gap="small")
     for scope_col, scope_key in zip(scope_cols, ["unique", "export", "avigilon", "axis", "other"]):
         with scope_col:
             is_active = st.session_state.get("health_scope_mode", "unique") == scope_key
-            if st.button(
+            st.button(
                 scope_labels[scope_key],
                 key=f"overview_scope_tab_{scope_key}",
                 use_container_width=True,
                 type="primary" if is_active else "secondary",
-            ):
-                st.session_state["health_scope_mode"] = scope_key
-                on_metric_click(scope_key)
+                on_click=handle_scope_click,
+                args=(scope_key,)
+            )
 
-    st.markdown("### Inventory")
-
-    controls_left, controls_right = st.columns([0.84, 0.16], gap="small")
+    controls_left, controls_right = st.columns([0.82, 0.18], gap="small")
     with controls_left:
-        st.markdown('<div class="camera-search-bar-label">Inventory Search</div>', unsafe_allow_html=True)
         search_term = st.text_input(
-            "Keyword Search",
+            "Search Inventory",
             key="overview_camera_keyword_search",
-            placeholder="Search by camera name, location, IP, ticket, or any visible field...",
+            placeholder="Search by camera name, MAC Address, location, IP, ticket, server, or any visible field...",
             label_visibility="collapsed",
         ).strip()
 
-    overview_all_cols = [
-        c for c in [
-            "Health", "Device Name Base", "key", "IP Address", "Location", "Ping Status", "Ticket ID",
-            "Primary Connection", "Secondary Connection", "Error Flags", "Servers", "disposition", "notes"
-        ] if c in all_df.columns
-    ]
     overview_default_cols = [
         c for c in [
-            "Health", "Device Name Base", "key", "IP Address", "Location", "Ping Status", "Ticket ID"
-        ] if c in overview_all_cols
+            "Health",
+            "Device Name Base",
+            "key",
+            "IP Address",
+            "Location",
+            "Primary Connection",
+            "Secondary Connection",
+        ] if c in all_df.columns
     ]
-    with controls_right:
-        st.markdown('<div class="camera-search-bar-label">Columns</div>', unsafe_allow_html=True)
-        with st.popover("Columns", use_container_width=True):
-            selected_extra_cols = []
-            for col_name in overview_all_cols:
-                visible_label = AGGRID_HEADER_LABELS.get(col_name, col_name)
-                checked = st.checkbox(
-                    visible_label,
-                    key=f"overview_col_toggle_{col_name}",
-                    value=(col_name in overview_default_cols),
-                )
-                if checked:
-                    selected_extra_cols.append(col_name)
-
-    filtered_table_df = all_df
-
-    if search_term:
-        search_mask = (
-            all_df.fillna("")
-            .astype(str)
-            .apply(lambda row: row.str.contains(search_term, case=False, regex=False).any(), axis=1)
-        )
-        filtered_table_df = all_df.loc[search_mask].copy()
-        st.caption(f"{len(filtered_table_df):,} cameras matched '{search_term}'.")
-
     overview_display_order = [
         "Health",
         "Device Name Base",
@@ -12241,41 +12509,177 @@ def render_overview_section() -> None:
         "Secondary Connection",
         "Error Flags",
         "Servers",
+        "Flaps (24h)",
+        "Flaps (7d)",
+        "Retention (days)",
+        "Retention Gap",
+        "Retention OK",
         "disposition",
         "notes",
     ]
+    overview_all_cols = [c for c in overview_display_order if c in all_df.columns]
+    overview_all_cols += [c for c in all_df.columns if c not in overview_all_cols]
+
+    with controls_right:
+        with st.popover("Columns", use_container_width=True):
+            selected_extra_cols: list[str] = []
+            for col_name in overview_all_cols:
+                visible_label = AGGRID_HEADER_LABELS.get(col_name, col_name)
+                checked = st.checkbox(
+                    visible_label,
+                    key=f"overview_col_toggle_{col_name}",
+                    value=(col_name in overview_default_cols),
+                )
+                if checked:
+                    selected_extra_cols.append(col_name)
+
+    filtered_table_df = all_df.copy()
+    if search_term:
+        search_mask = (
+            all_df.fillna("")
+            .astype(str)
+            .apply(lambda row: row.str.contains(search_term, case=False, regex=False).any(), axis=1)
+        )
+        filtered_table_df = all_df.loc[search_mask].copy()
+
     overview_visible_cols = [c for c in selected_extra_cols if c in filtered_table_df.columns]
     if not overview_visible_cols:
         overview_visible_cols = [c for c in overview_default_cols if c in filtered_table_df.columns]
-    overview_table_df = filtered_table_df[[c for c in overview_display_order if c in overview_visible_cols]].copy()
+    ordered_visible_cols = [c for c in overview_all_cols if c in overview_visible_cols]
+    overview_table_df = filtered_table_df[ordered_visible_cols].copy()
 
     overview_column_config = {
-        "Health": st.column_config.TextColumn("Health", width="small"),
+        "Health": st.column_config.TextColumn("Health", width="medium"),
         "Device Name Base": st.column_config.TextColumn("Camera Name", width="large"),
         "key": st.column_config.TextColumn("MAC Address", width="medium"),
-        "IP Address": st.column_config.TextColumn("IP Address", width="small"),
-        "Location": st.column_config.TextColumn("Location", width="medium"),
+        "IP Address": st.column_config.TextColumn("IP Address", width="medium"),
+        "Location": st.column_config.TextColumn("Location", width="large"),
         "Ping Status": st.column_config.TextColumn("Ping Status", width="medium"),
-        "Ticket ID": st.column_config.TextColumn("Ticket ID", width="small"),
+        "Ticket ID": st.column_config.TextColumn("Ticket ID", width="medium"),
         "Primary Connection": st.column_config.TextColumn("Primary Connection", width="large"),
         "Secondary Connection": st.column_config.TextColumn("Secondary Connection", width="large"),
         "Error Flags": st.column_config.TextColumn("Errors", width="large"),
         "Servers": st.column_config.TextColumn("Servers", width="large"),
+        "Flaps (24h)": st.column_config.NumberColumn("Flaps (24h)", width="small"),
+        "Flaps (7d)": st.column_config.NumberColumn("Flaps (7d)", width="small"),
+        "Retention (days)": st.column_config.NumberColumn("Retention (days)", width="small"),
+        "Retention Gap": st.column_config.NumberColumn("Retention Gap", width="small"),
+        "Retention OK": st.column_config.CheckboxColumn("Retention OK", width="small"),
         "disposition": st.column_config.TextColumn("Disposition", width="medium"),
         "notes": st.column_config.TextColumn("Notes", width="large"),
     }
 
-    st.data_editor(
-        overview_table_df,
-        width="stretch",
-        height=560,
-        hide_index=True,
-        disabled=list(overview_table_df.columns),
-        column_config={k: v for k, v in overview_column_config.items() if k in overview_table_df.columns},
-        key="overview_table_light",
-    )
-
-    render_html("</div>")
+    table_chip = f"{len(filtered_table_df):,} matched '{search_term}'" if search_term else "All scoped rows"
+    render_overview_table_header(len(filtered_table_df), table_chip)
+    if (
+        not overview_table_df.empty
+        and all(
+            dependency is not None
+            for dependency in (AgGrid, GridOptionsBuilder, DataReturnMode, GridUpdateMode, ColumnsAutoSizeMode)
+        )
+    ):
+        overview_width_px = {
+            "Health": 170,
+            "Device Name Base": 250,
+            "key": 165,
+            "IP Address": 135,
+            "Location": 240,
+            "Ping Status": 170,
+            "Ticket ID": 110,
+            "Primary Connection": 250,
+            "Secondary Connection": 250,
+            "Error Flags": 260,
+            "Servers": 220,
+            "Flaps (24h)": 110,
+            "Flaps (7d)": 110,
+            "Retention (days)": 130,
+            "Retention Gap": 120,
+            "Retention OK": 120,
+            "disposition": 150,
+            "notes": 260,
+        }
+        gb = GridOptionsBuilder.from_dataframe(overview_table_df)
+        gb.configure_default_column(
+            editable=False,
+            filter=False,
+            sortable=True,
+            resizable=True,
+            suppressMenu=True,
+            wrapHeaderText=True,
+            autoHeaderHeight=True,
+        )
+        gb.configure_grid_options(
+            rowHeight=38,
+            headerHeight=44,
+            suppressMovableColumns=True,
+            ensureDomOrder=True,
+            tooltipShowDelay=0,
+            tooltipMouseTrack=True,
+            enableCellTextSelection=True,
+        )
+        for col in overview_table_df.columns:
+            header = str(AGGRID_HEADER_LABELS.get(col, col))
+            gb.configure_column(
+                str(col),
+                header_name=header,
+                width=int(overview_width_px.get(str(col), 150)),
+                minWidth=90,
+                tooltipField=str(col),
+            )
+        AgGrid(
+            overview_table_df,
+            gridOptions=gb.build(),
+            height=520,
+            theme="streamlit",
+            key="overview_inventory_grid",
+            data_return_mode=DataReturnMode.AS_INPUT,
+            update_mode=GridUpdateMode.NO_UPDATE,
+            allow_unsafe_jscode=False,
+            columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS,
+            fit_columns_on_grid_load=False,
+            custom_css={
+                ".ag-root-wrapper": {
+                    "border": "1px solid rgba(90, 128, 99, 0.22)",
+                    "border-radius": "18px",
+                    "overflow": "hidden",
+                    "box-shadow": "0 12px 24px rgba(68, 97, 76, 0.08)",
+                },
+                ".ag-header": {
+                    "background": f"linear-gradient(180deg, {active_theme['accent']}, {active_theme['accent_strong']})",
+                    "border-bottom": "1px solid rgba(196, 220, 195, 0.18)",
+                },
+                ".ag-header-cell": {
+                    "background": f"linear-gradient(180deg, {active_theme['accent']}, {active_theme['accent_strong']})",
+                    "border-right": "1px solid rgba(196, 220, 195, 0.08)",
+                },
+                ".ag-header-cell-text": {
+                    "color": "#d8ead6",
+                    "font-weight": "700",
+                },
+                ".ag-header-icon": {
+                    "color": "#d8ead6",
+                },
+                ".ag-row": {
+                    "background-color": "#fffef8",
+                    "color": "#274231",
+                    "border-bottom": "1px solid rgba(90, 128, 99, 0.08)",
+                },
+                ".ag-row-even": {
+                    "background-color": "#f2f8f0",
+                },
+                ".ag-row-hover": {
+                    "background-color": "#e8f2e6 !important",
+                },
+            },
+        )
+    else:
+        st.dataframe(
+            overview_table_df,
+            width="stretch",
+            height=520,
+            hide_index=True,
+            column_config={k: v for k, v in overview_column_config.items() if k in overview_table_df.columns},
+        )
 
 
 
@@ -12377,6 +12781,8 @@ def render_action_required_tab():
             "Error Flags",
 
         ],
+
+        table_height=500,
 
     )
 

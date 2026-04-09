@@ -677,7 +677,7 @@ def _render_copy_button(text: str, key: str, label: str = "Copy BOM") -> None:
         f"""
         <div style="display:flex; align-items:center; gap:12px; margin:0.2rem 0 0.8rem 0;">
             <button
-                style="background:#FDD023; color:#2D1259; border:none; border-radius:8px; padding:0.55rem 0.9rem; font-weight:700; cursor:pointer;"
+                style="background:#5d8667; color:#f7fbf7; border:none; border-radius:8px; padding:0.55rem 0.9rem; font-weight:700; cursor:pointer;"
                 onclick='navigator.clipboard.writeText({payload}).then(function(){{document.getElementById("{message_id}").innerText="Copied to clipboard";}}).catch(function(){{document.getElementById("{message_id}").innerText="Clipboard copy failed";}});'
             >{label}</button>
             <span id="{message_id}" style="font-family:sans-serif; font-size:0.9rem; color:#d8dfeb;"></span>
@@ -750,6 +750,120 @@ def _sync_multi_select_state(key: str, options: list[str]) -> list[str]:
 def render_builder() -> None:
     st.markdown("## Camera Installation Builder")
     st.caption("Build workbook-backed Avigilon installation packages in four steps: choose a workbook, choose a camera, choose an install scenario, then review the generated BOM.")
+    components.html(
+        """
+        <style>
+        .cib-step-title {
+            margin: 0.16rem 0 0.12rem 0 !important;
+            color: #22352a;
+            font-size: 0.92rem;
+            font-weight: 760;
+            line-height: 1.1;
+        }
+        .cib-step-copy {
+            margin: 0 0 0.18rem 0 !important;
+            color: #6a7b6e;
+            font-size: 0.75rem;
+            line-height: 1.22;
+        }
+        .cib-muted-caption {
+            margin: 0.05rem 0 0.08rem 0 !important;
+            color: #7b8d80;
+            font-size: 0.71rem;
+            line-height: 1.18;
+        }
+        .st-key-cib_workbook_upload,
+        .st-key-cib_workbook_path,
+        .st-key-cib_family,
+        .st-key-cib_model,
+        .st-key-cib_scenario,
+        .st-key-cib_mount_type,
+        .st-key-cib_environment,
+        .st-key-cib_tags,
+        .st-key-cib_quantity,
+        .st-key-cib_required_only,
+        .st-key-cib_debug_mode {
+            margin-bottom: 0.04rem !important;
+        }
+        .st-key-cib_workbook_upload label[data-testid="stWidgetLabel"],
+        .st-key-cib_workbook_path label[data-testid="stWidgetLabel"],
+        .st-key-cib_family label[data-testid="stWidgetLabel"],
+        .st-key-cib_model label[data-testid="stWidgetLabel"],
+        .st-key-cib_scenario label[data-testid="stWidgetLabel"],
+        .st-key-cib_mount_type label[data-testid="stWidgetLabel"],
+        .st-key-cib_environment label[data-testid="stWidgetLabel"],
+        .st-key-cib_tags label[data-testid="stWidgetLabel"],
+        .st-key-cib_quantity label[data-testid="stWidgetLabel"] {
+            margin-bottom: 0.02rem !important;
+        }
+        .st-key-cib_workbook_upload label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_workbook_path label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_family label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_model label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_scenario label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_mount_type label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_environment label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_tags label[data-testid="stWidgetLabel"] p,
+        .st-key-cib_quantity label[data-testid="stWidgetLabel"] p {
+            font-size: 0.74rem !important;
+            line-height: 1.05 !important;
+            margin: 0 !important;
+        }
+        .st-key-cib_workbook_path input,
+        .st-key-cib_family [data-baseweb="select"] > div,
+        .st-key-cib_model [data-baseweb="select"] > div,
+        .st-key-cib_scenario [data-baseweb="select"] > div,
+        .st-key-cib_mount_type [data-baseweb="select"] > div,
+        .st-key-cib_environment [data-baseweb="select"] > div,
+        .st-key-cib_tags [data-baseweb="select"] > div,
+        .st-key-cib_quantity input {
+            min-height: 1.95rem !important;
+            height: 1.95rem !important;
+            font-size: 0.81rem !important;
+        }
+        .st-key-cib_workbook_upload [data-testid="stFileUploader"] {
+            margin-bottom: 0.08rem !important;
+        }
+        .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzone"] {
+            padding-top: 0.32rem !important;
+            padding-bottom: 0.32rem !important;
+            min-height: 3.55rem !important;
+        }
+        .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzoneInstructions"] span,
+        .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzoneInstructions"] small {
+            font-size: 0.74rem !important;
+            line-height: 1.1 !important;
+        }
+        .st-key-cib_workbook_upload button {
+            min-height: 1.85rem !important;
+            height: 1.85rem !important;
+        }
+        .st-key-cib_required_only,
+        .st-key-cib_debug_mode {
+            padding-top: 0.05rem !important;
+            margin-top: -0.02rem !important;
+        }
+        .st-key-cib_required_only label,
+        .st-key-cib_debug_mode label {
+            min-height: 1.2rem !important;
+        }
+        .st-key-cib_required_only p,
+        .st-key-cib_debug_mode p {
+            font-size: 0.78rem !important;
+            margin: 0 !important;
+            line-height: 1.12 !important;
+        }
+        .st-key-cib_build button,
+        .st-key-cib_clear button {
+            min-height: 2rem !important;
+            height: 2rem !important;
+            padding-top: 0.18rem !important;
+            padding-bottom: 0.18rem !important;
+        }
+        </style>
+        """,
+        height=0,
+    )
 
     if st.session_state.get("cib_reset_pending"):
         reset_builder_state()
@@ -760,11 +874,11 @@ def render_builder() -> None:
     st.session_state.setdefault("cib_required_only", False)
     st.session_state.setdefault("cib_debug_mode", False)
 
-    left_col, right_col = st.columns([1.08, 1.32], gap="medium")
+    left_col, right_col = st.columns([1.06, 1.34], gap="small")
 
     with left_col:
-        st.markdown("### Step 1 · Workbook")
-        st.caption("Choose the ordering workbook that powers the builder. Repo-local `data/` is the best long-term location on this machine.")
+        st.markdown('<div class="cib-step-title">Step 1 · Workbook</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cib-step-copy">Choose the ordering workbook that powers the builder. Repo-local <code>data/</code> is the best long-term location on this machine.</div>', unsafe_allow_html=True)
         uploaded_workbook = st.file_uploader(
             "Upload workbook",
             type=["xlsx"],
@@ -790,7 +904,7 @@ def render_builder() -> None:
                 st.session_state["cib_last_workbook_hash"] = catalog.get("workbook_hash")
 
             if catalog.get("workbook_name"):
-                st.caption(f"Loaded workbook: {catalog['workbook_name']}")
+                st.markdown(f'<div class="cib-muted-caption">Loaded workbook: {catalog["workbook_name"]}</div>', unsafe_allow_html=True)
             for warning in catalog.get("warnings", []):
                 st.warning(warning)
             for error in catalog.get("errors", []):
@@ -800,10 +914,12 @@ def render_builder() -> None:
             bundles_df = catalog.get("bundles_df", pd.DataFrame())
 
             if not models_df.empty and not bundles_df.empty:
-                st.markdown("### Step 2 · Camera")
+                st.markdown('<div class="cib-step-title">Step 2 · Camera</div>', unsafe_allow_html=True)
                 families = sorted(family for family in models_df["family"].dropna().astype(str).unique().tolist() if family)
                 selected_family = _sync_single_select_state("cib_family", families)
-                selected_family = st.selectbox("Camera family", options=[""] + families, key="cib_family")
+                family_col, model_col = st.columns(2, gap="small")
+                with family_col:
+                    selected_family = st.selectbox("Camera family", options=[""] + families, key="cib_family")
 
                 models_scope = filter_bundle_candidates(catalog, family=selected_family)
                 model_options = (
@@ -812,9 +928,10 @@ def render_builder() -> None:
                     else sorted(models_df["model_number"].dropna().astype(str).unique().tolist())
                 )
                 _sync_single_select_state("cib_model", model_options)
-                selected_model = st.selectbox("Camera model", options=[""] + model_options, key="cib_model")
+                with model_col:
+                    selected_model = st.selectbox("Camera model", options=[""] + model_options, key="cib_model")
 
-                st.markdown("### Step 3 · Installation scenario")
+                st.markdown('<div class="cib-step-title">Step 3 · Installation Scenario</div>', unsafe_allow_html=True)
                 scenarios_scope = filter_bundle_candidates(catalog, family=selected_family, model_number=selected_model)
                 scenario_options = (
                     sorted(scenarios_scope["scenario"].dropna().astype(str).unique().tolist())
@@ -822,7 +939,9 @@ def render_builder() -> None:
                     else sorted(bundles_df["scenario"].dropna().astype(str).unique().tolist())
                 )
                 _sync_single_select_state("cib_scenario", scenario_options)
-                selected_scenario = st.selectbox("Installation scenario", options=[""] + scenario_options, key="cib_scenario")
+                scenario_col, mount_col = st.columns(2, gap="small")
+                with scenario_col:
+                    selected_scenario = st.selectbox("Installation scenario", options=[""] + scenario_options, key="cib_scenario")
 
                 mount_scope = filter_bundle_candidates(
                     catalog,
@@ -836,7 +955,8 @@ def render_builder() -> None:
                     else sorted(bundles_df["mount_type"].dropna().astype(str).unique().tolist())
                 )
                 _sync_single_select_state("cib_mount_type", mount_type_options)
-                selected_mount_type = st.selectbox("Mount type", options=[""] + mount_type_options, key="cib_mount_type")
+                with mount_col:
+                    selected_mount_type = st.selectbox("Mount type", options=[""] + mount_type_options, key="cib_mount_type")
 
                 environment_scope = filter_bundle_candidates(
                     catalog,
@@ -851,7 +971,9 @@ def render_builder() -> None:
                     else sorted(models_df["indoor_outdoor"].dropna().astype(str).unique().tolist())
                 )
                 _sync_single_select_state("cib_environment", environment_options)
-                selected_environment = st.selectbox("Environment", options=[""] + environment_options, key="cib_environment")
+                environment_col, tags_col = st.columns(2, gap="small")
+                with environment_col:
+                    selected_environment = st.selectbox("Environment", options=[""] + environment_options, key="cib_environment")
 
                 tag_scope = filter_bundle_candidates(
                     catalog,
@@ -871,12 +993,16 @@ def render_builder() -> None:
                     key=lambda tag: FILTER_TAGS.index(tag) if tag in FILTER_TAGS else 999,
                 ) if not tag_scope.empty else FILTER_TAGS
                 _sync_multi_select_state("cib_tags", tag_options)
-                st.multiselect("Optional filters", options=tag_options, key="cib_tags")
+                with tags_col:
+                    st.multiselect("Optional filters", options=tag_options, key="cib_tags")
 
-                st.markdown("### Step 4 · Output options")
-                st.number_input("Camera quantity", min_value=1, step=1, key="cib_quantity")
-                st.checkbox("Show only required parts in results", key="cib_required_only")
-                st.checkbox("Debug / provenance mode", key="cib_debug_mode")
+                st.markdown('<div class="cib-step-title">Step 4 · Output Options</div>', unsafe_allow_html=True)
+                output_col, option_col = st.columns(2, gap="small")
+                with output_col:
+                    st.number_input("Camera quantity", min_value=1, step=1, key="cib_quantity")
+                    st.checkbox("Show only required parts in results", key="cib_required_only")
+                with option_col:
+                    st.checkbox("Debug / provenance mode", key="cib_debug_mode")
 
                 build_col, clear_col = st.columns(2)
                 with build_col:
