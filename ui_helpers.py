@@ -25,32 +25,17 @@ def render_health_section_intro(title: str, subtitle: str, eyebrow: str = "Healt
             background: transparent;
             box-shadow: none;
         }}
-        .health-intro-eyebrow {{
-            color: #6b806f;
-            font-size: 0.64rem;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            margin-bottom: 0.22rem;
-        }}
         .health-intro-title {{
-            color: #24362b;
-            font-size: 1rem;
-            font-weight: 700;
+            color: #1e293b;
+            font-size: 1.05rem;
+            font-weight: 750;
             line-height: 1.18;
-            margin-bottom: 0.2rem;
-        }}
-        .health-intro-subtitle {{
-            color: #627467;
-            font-size: 0.84rem;
-            line-height: 1.4;
-            max-width: 56rem;
+            margin-bottom: 0;
+            letter-spacing: -0.02em;
         }}
         </style>
         <div class="health-intro-card">
-            <div class="health-intro-eyebrow">{eyebrow}</div>
             <div class="health-intro-title">{title}</div>
-            <div class="health-intro-subtitle">{subtitle}</div>
         </div>
         """
     )

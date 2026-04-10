@@ -753,24 +753,108 @@ def render_builder() -> None:
     components.html(
         """
         <style>
-        .cib-step-title {
+        .cib-shell {
+            --cib-field-bg: rgba(250, 252, 253, 0.99);
+            --cib-field-border: rgba(84, 110, 122, 0.24);
+            --cib-field-focus: rgba(53, 126, 155, 0.42);
+            --cib-copy: #5c6d77;
+            --cib-heading: #31414a;
+        }
+        .cib-shell .cib-step-title {
             margin: 0.16rem 0 0.12rem 0 !important;
-            color: #22352a;
+            color: var(--cib-heading);
             font-size: 0.92rem;
             font-weight: 760;
             line-height: 1.1;
         }
-        .cib-step-copy {
+        .cib-shell .cib-step-copy {
             margin: 0 0 0.18rem 0 !important;
-            color: #6a7b6e;
+            color: var(--cib-copy);
             font-size: 0.75rem;
             line-height: 1.22;
         }
-        .cib-muted-caption {
+        .cib-shell .cib-muted-caption {
             margin: 0.05rem 0 0.08rem 0 !important;
-            color: #7b8d80;
+            color: #6b7e88;
             font-size: 0.71rem;
             line-height: 1.18;
+        }
+        .cib-shell h3,
+        .cib-shell h4,
+        .cib-shell h5,
+        .cib-shell p,
+        .cib-shell label,
+        .cib-shell span {
+            color: inherit;
+        }
+        .cib-shell div[data-testid="stAlert"] {
+            border: 1px solid rgba(84, 110, 122, 0.18);
+        }
+        .cib-shell div[data-testid="stTextInput"] input,
+        .cib-shell div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+        .cib-shell div[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+        .cib-shell div[data-testid="stNumberInput"] input {
+            background: var(--cib-field-bg) !important;
+            border: 1px solid var(--cib-field-border) !important;
+            color: #33424b !important;
+        }
+        .cib-shell div[data-testid="stTextInput"] input::placeholder,
+        .cib-shell div[data-testid="stNumberInput"] input::placeholder {
+            color: #84939c !important;
+        }
+        .cib-shell div[data-testid="stTextInput"] input:focus,
+        .cib-shell div[data-testid="stNumberInput"] input:focus,
+        .cib-shell div[data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within,
+        .cib-shell div[data-testid="stMultiSelect"] [data-baseweb="select"] > div:focus-within {
+            border-color: var(--cib-field-focus) !important;
+        }
+        .cib-shell div[data-testid="stButton"] > button,
+        .cib-shell div[data-testid="stDownloadButton"] > button {
+            border: 1px solid rgba(84, 110, 122, 0.22) !important;
+            background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(238,244,247,0.99)) !important;
+            color: #325061 !important;
+        }
+        .cib-shell div[data-testid="stButton"] > button:hover,
+        .cib-shell div[data-testid="stDownloadButton"] > button:hover {
+            border-color: rgba(53, 126, 155, 0.42) !important;
+            background: linear-gradient(180deg, rgba(244,250,252,0.99), rgba(225,236,241,0.99)) !important;
+            color: #284759 !important;
+        }
+        .cib-shell .st-key-cib_build button {
+            background: linear-gradient(180deg, #4a859d, #357e9b) !important;
+            color: #ffffff !important;
+            border-color: #357e9b !important;
+        }
+        .cib-shell .st-key-cib_workbook_upload [data-testid="stFileUploader"] section {
+            background: linear-gradient(180deg, rgba(250,252,253,0.99), rgba(236,242,245,0.99));
+            border: 1px dashed rgba(84, 110, 122, 0.3);
+        }
+        .cib-shell .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzone"] {
+            background: transparent;
+            border: none;
+        }
+        .cib-shell .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzoneInstructions"] span,
+        .cib-shell .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzoneInstructions"] small,
+        .cib-shell .st-key-cib_workbook_upload [data-testid="stFileUploader"] button {
+            color: #4e6470 !important;
+        }
+        .cib-shell div[data-testid="stCheckbox"] label,
+        .cib-shell div[data-testid="stCheckbox"] p,
+        .cib-shell .stCaptionContainer,
+        .cib-shell div[data-testid="stMarkdownContainer"] p {
+            color: var(--cib-copy);
+        }
+        .cib-shell div[data-testid="stDataFrame"] {
+            border: 1px solid rgba(84, 110, 122, 0.16);
+            background: rgba(255, 255, 255, 0.98);
+        }
+        .cib-shell div[data-testid="stExpander"] {
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(239,244,247,0.98));
+            border: 1px solid rgba(84, 110, 122, 0.18);
+        }
+        .cib-shell div[data-testid="stExpander"] details summary p,
+        .cib-shell div[data-testid="stExpander"] details summary span {
+            color: #40525c !important;
         }
         .st-key-cib_workbook_upload,
         .st-key-cib_workbook_path,
@@ -864,6 +948,7 @@ def render_builder() -> None:
         """,
         height=0,
     )
+    st.markdown('<div class="cib-shell">', unsafe_allow_html=True)
 
     if st.session_state.get("cib_reset_pending"):
         reset_builder_state()
@@ -1142,3 +1227,4 @@ def render_builder() -> None:
                     st.dataframe(debug_df, hide_index=True, use_container_width=True)
                 else:
                     st.info("No debug match rows were recorded for this result.")
+    st.markdown("</div>", unsafe_allow_html=True)

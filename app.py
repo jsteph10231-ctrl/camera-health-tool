@@ -1,3 +1,4 @@
+import errno
 import os
 
 import io
@@ -37,7 +38,6 @@ import streamlit as st  # type: ignore[import-untyped]
 import streamlit.components.v1 as components  # type: ignore[import-untyped]
 from ui_helpers import render_health_section_intro
 from overview_helpers import (
-    OVERVIEW_GREENS,
     render_overview_chart_card,
     render_overview_header,
     render_overview_metric_cards,
@@ -45,6 +45,7 @@ from overview_helpers import (
     render_overview_table_header,
     render_overview_theme,
 )
+from sidebar_theme import build_sidebar_theme_css
 try:
     from st_aggrid import (  # type: ignore[import-untyped]
         AgGrid,
@@ -78,6 +79,86 @@ def render_html(markup: str) -> None:
     st.markdown(cleaned_markup, unsafe_allow_html=True)
 
 
+def render_sidebar_html(markup: str) -> None:
+
+    cleaned_markup = textwrap.dedent(markup).strip()
+    st.sidebar.markdown(cleaned_markup, unsafe_allow_html=True)
+
+
+def render_sidebar_section_label(text: str) -> None:
+    render_sidebar_html(f'<div class="sidebar-section-label">{html_escape(text)}</div>')
+
+
+def render_sidebar_muted_copy(text: str) -> None:
+    render_sidebar_html(f'<div class="sidebar-muted-copy">{html_escape(text)}</div>')
+
+
+_WORKSPACE_BRAND: dict[str, tuple[str, str]] = {
+    "Health Status": ("Health Status", "Enterprise Monitoring"),
+    "Ticket Related": ("Ticket Dashboard", "Communications Hub"),
+    "Project Related": ("Project Builder", "Expanding Security"),
+}
+
+_WORKSPACE_BRAND_ICON: dict[str, str] = {
+    "Health Status": """
+        <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.5 12h4l1.6-2.7 2.2 5.2 1.7-3.1h5"></path>
+            <path d="M5.5 7.5h13a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z"></path>
+        </svg>
+    """,
+    "Ticket Related": """
+        <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 6.5h10a2 2 0 0 1 2 2v3a1.5 1.5 0 0 0 0 3v3a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3a1.5 1.5 0 0 0 0-3v-3a2 2 0 0 1 2-2Z"></path>
+            <path d="M9.25 10h5.5"></path>
+            <path d="M9.25 14h3.5"></path>
+        </svg>
+    """,
+    "Project Related": """
+        <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.5 5.5 18.5 9.5"></path>
+            <path d="M6 18l2.75-.55L18.5 7.7a1.4 1.4 0 0 0 0-1.95l-.25-.25a1.4 1.4 0 0 0-1.95 0L6.55 15.25 6 18Z"></path>
+            <path d="M9.25 8.5h3"></path>
+            <path d="M8 11.5h4.5"></path>
+        </svg>
+    """,
+}
+
+
+def render_sidebar_brand_card(workspace: str = "Health Status") -> None:
+    title, subtitle = _WORKSPACE_BRAND.get(workspace, ("Health Status", "Enterprise Monitoring"))
+    icon_markup = " ".join(_WORKSPACE_BRAND_ICON.get(workspace, _WORKSPACE_BRAND_ICON["Health Status"]).split())
+    with st.sidebar.container():
+        icon_col, text_col = st.columns([0.95, 2.8], gap="small")
+        with icon_col:
+            st.markdown(
+                (
+                    "<div style='width:50px;height:50px;border-radius:13px;"
+                    "display:flex;align-items:center;justify-content:center;"
+                    "background:linear-gradient(180deg,#357E9B,#2E708B);"
+                    "box-shadow:0 6px 14px rgba(53,126,155,0.16);"
+                    "margin-top:2px;'>"
+                    f"{icon_markup}"
+                    "</div>"
+                ),
+                unsafe_allow_html=True,
+            )
+        with text_col:
+            st.markdown(
+                (
+                    "<div style='padding-top:2px;margin-left:-8px;'>"
+                    f"<div style='color:#2F738E;font-family:Inter,\"Segoe UI\",\"Helvetica Neue\",Arial,sans-serif;"
+                    "font-size:22px;font-weight:800;letter-spacing:-0.03em;line-height:1.0;margin:0;'>"
+                    f"{html_escape(title)}</div>"
+                    f"<div style='color:#54616B;font-family:Inter,\"Segoe UI\",\"Helvetica Neue\",Arial,sans-serif;"
+                    "font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;"
+                    "line-height:1.1;margin-top:10px;white-space:nowrap;'>"
+                    f"{html_escape(subtitle)}</div>"
+                    "</div>"
+                ),
+                unsafe_allow_html=True,
+            )
+
+
 # Use a dome camera favicon; the animated sweep variant is injected below.
 _favicon = "\U0001F4F9"
 
@@ -86,127 +167,64 @@ _favicon = "\U0001F4F9"
 st.set_page_config(page_title="LSU Camera Health Tool", layout="wide", page_icon=_favicon)
 
 
-
-# Theme preference lives in session state and is exposed from a compact overflow menu.
-
-THEME_VARIANTS: dict[str, dict[str, str]] = {
-    "Sage": {
-        "primary": "#547c5d",
-        "background": "#f5f4ec",
-        "secondary_bg": "#eff3eb",
-        "text": "#24362b",
-        "app_bg": "#f5f4ec",
-        "app_bg_soft": "#ebeede",
-        "surface": "#ffffff",
-        "surface_2": "#fbfbf8",
-        "surface_3": "#f4f5f1",
-        "cell_shell": "#e7ebe3",
-        "cell": "#fffefb",
-        "cell_alt": "#f7f8f4",
-        "cell_hover": "#eff2ec",
-        "cell_header": "#dde4d7",
-        "border": "rgba(100, 113, 102, 0.22)",
-        "border_strong": "rgba(70, 92, 76, 0.55)",
-        "text_main": "#25342b",
-        "text_muted": "#67756b",
-        "accent": "#627a69",
-        "accent_strong": "#547c5d",
-        "accent_soft": "#edf1ea",
-        "accent_soft_2": "#f0f3ee",
-        "accent_text": "#2d4936",
-        "accent_hover": "#234031",
-        "focus_ring": "rgba(84, 124, 93, 0.14)",
-        "focus_border": "rgba(84, 124, 93, 0.40)",
-        "sidebar_bg_top": "#f1f5ee",
-        "sidebar_bg_bottom": "#e6eee1",
-        "sidebar_hover": "#edf3ea",
-        "sidebar_selected": "#e3ece0",
-        "sidebar_button_top": "#ffffff",
-        "sidebar_button_bottom": "#f6f8f3",
-        "sidebar_button_border": "rgba(95, 119, 101, 0.34)",
-        "sidebar_button_text": "#32463a",
-        "sidebar_button_hover_top": "#ffffff",
-        "sidebar_button_hover_bottom": "#edf3ea",
-        "sidebar_text": "#304239",
-        "sidebar_text_muted": "#6b786e",
-        "sidebar_accent": "#7f9a82",
-        "sidebar_accent_strong": "#547c5d",
-        "sidebar_panel_top": "#ffffff",
-        "sidebar_panel_bottom": "#f7faf4",
-        "sidebar_panel_border": "rgba(95, 119, 101, 0.24)",
-        "header_bg": "rgba(244, 248, 241, 0.96)",
-        "placeholder": "#7a8b7e",
-        "tab_shadow": "#6b8f73",
-        "scrollbar": "#a7bcac",
-        "scrollbar_hover": "#6f9078",
-        "banner_line_start": "#9bb7a0",
-        "banner_line_mid": "#6f9078",
-        "banner_line_end": "#9bb7a0",
-    },
-    "Uni": {
-        "primary": "#1d2b46",
-        "background": "#f7f8fb",
-        "secondary_bg": "#eff2f7",
-        "text": "#223047",
-        "app_bg": "#f7f8fb",
-        "app_bg_soft": "#eef2f7",
-        "surface": "#ffffff",
-        "surface_2": "#fbfcff",
-        "surface_3": "#f1f4f8",
-        "cell_shell": "#e4e9f0",
-        "cell": "#ffffff",
-        "cell_alt": "#f6f8fc",
-        "cell_hover": "#edf2f8",
-        "cell_header": "#d8e0ec",
-        "border": "rgba(72, 88, 112, 0.15)",
-        "border_strong": "rgba(44, 60, 89, 0.24)",
-        "text_main": "#223047",
-        "text_muted": "#66758a",
-        "accent": "#31476f",
-        "accent_strong": "#1d2b46",
-        "accent_soft": "#eaf0f7",
-        "accent_soft_2": "#eef3f9",
-        "accent_text": "#2a3c5d",
-        "accent_hover": "#172238",
-        "focus_ring": "rgba(29, 43, 70, 0.14)",
-        "focus_border": "rgba(29, 43, 70, 0.40)",
-        "sidebar_bg_top": "#fafbfe",
-        "sidebar_bg_bottom": "#edf1f7",
-        "sidebar_hover": "#eef3f9",
-        "sidebar_selected": "#e4ebf4",
-        "sidebar_button_top": "#ffffff",
-        "sidebar_button_bottom": "#f1f4f8",
-        "sidebar_button_border": "rgba(72, 88, 112, 0.15)",
-        "sidebar_button_text": "#2a3c5d",
-        "sidebar_button_hover_top": "#f6f8fc",
-        "sidebar_button_hover_bottom": "#eaf0f7",
-        "sidebar_text": "#223047",
-        "sidebar_text_muted": "#66758a",
-        "sidebar_accent": "#31476f",
-        "sidebar_accent_strong": "#1d2b46",
-        "sidebar_panel_top": "#ffffff",
-        "sidebar_panel_bottom": "#f7f9fc",
-        "sidebar_panel_border": "rgba(72, 88, 112, 0.18)",
-        "header_bg": "rgba(244, 247, 252, 0.96)",
-        "placeholder": "#79879b",
-        "tab_shadow": "#31476f",
-        "scrollbar": "#a4b1c3",
-        "scrollbar_hover": "#586c8b",
-        "banner_line_start": "#b9c6d8",
-        "banner_line_mid": "#1d2b46",
-        "banner_line_end": "#b9c6d8",
-    },
+# Theme styling uses one shared palette for now to keep the chrome consistent.
+active_theme: dict[str, str] = {
+    "primary": "#357E9B",
+    "background": "#F1F3F4",
+    "secondary_bg": "#E7ECEF",
+    "text": "#40484D",
+    "app_bg": "#F1F3F4",
+    "app_bg_soft": "#E7ECEF",
+    "surface": "#ffffff",
+    "surface_2": "#FBFCFC",
+    "surface_3": "#E9EEF1",
+    "cell_shell": "#DCE4E8",
+    "cell": "#ffffff",
+    "cell_alt": "#F6F8F9",
+    "cell_hover": "#EDF2F5",
+    "cell_header": "#D8E1E6",
+    "border": "rgba(101, 122, 132, 0.18)",
+    "border_strong": "rgba(101, 122, 132, 0.34)",
+    "text_main": "#40484D",
+    "text_muted": "#657A84",
+    "accent": "#357E9B",
+    "accent_strong": "#2E6D86",
+    "accent_soft": "#E5F2F7",
+    "accent_soft_2": "#EFF6FA",
+    "accent_text": "#2D6176",
+    "accent_hover": "#264F61",
+    "focus_ring": "rgba(53, 126, 155, 0.14)",
+    "focus_border": "rgba(53, 126, 155, 0.38)",
+    "sidebar_bg_top": "#F4F6F7",
+    "sidebar_bg_bottom": "#E8EDF0",
+    "sidebar_hover": "#EEF3F5",
+    "sidebar_selected": "#E2E8EC",
+    "sidebar_button_top": "#ffffff",
+    "sidebar_button_bottom": "#F5F8F9",
+    "sidebar_button_border": "rgba(101, 122, 132, 0.18)",
+    "sidebar_button_text": "#40484D",
+    "sidebar_button_hover_top": "#ffffff",
+    "sidebar_button_hover_bottom": "#EEF3F5",
+    "sidebar_text": "#40484D",
+    "sidebar_text_muted": "#657A84",
+    "sidebar_accent": "#657A84",
+    "sidebar_accent_strong": "#4B5E67",
+    "sidebar_panel_top": "#ffffff",
+    "sidebar_panel_bottom": "#F8FAFB",
+    "sidebar_panel_border": "rgba(101, 122, 132, 0.18)",
+    "sidebar_shadow": "rgba(15, 23, 42, 0.06)",
+    "sidebar_shadow_strong": "rgba(15, 23, 42, 0.10)",
+    "sidebar_overlay_top": "rgba(255, 255, 255, 0.20)",
+    "sidebar_overlay_bottom": "rgba(241, 243, 244, 0.14)",
+    "header_bg": "#F1F3F4",
+    "placeholder": "#8D9AA2",
+    "tab_shadow": "#5E779E",
+    "scrollbar": "#B7C5CD",
+    "scrollbar_hover": "#657A84",
+    "banner_line_start": "#AFC9D6",
+    "banner_line_mid": "#357E9B",
+    "banner_line_end": "#B8C2DE",
 }
-
-if "app_theme_variant" not in st.session_state:
-    st.session_state.app_theme_variant = "Sage"
-
-theme_variant = str(st.session_state.get("app_theme_variant", "Sage"))
-if theme_variant not in THEME_VARIANTS:
-    theme_variant = "Sage"
-    st.session_state.app_theme_variant = theme_variant
-
-active_theme = THEME_VARIANTS[theme_variant]
 theme_dark_mode = True
 
 theme_config = {
@@ -260,45 +278,6 @@ _LEGACY_THEME_CSS = """
 
 /* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Sidebar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */
 
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #f3f7f1 0%, #eef4ec 100%);
-    border-right: 1px solid var(--border-soft);
-}
-
-[data-testid="stSidebar"] * {
-    color: var(--text-main) !important;
-}
-
-[data-testid="stSidebar"] input,
-[data-testid="stSidebar"] textarea,
-[data-testid="stSidebar"] [data-baseweb="select"] > div {
-    background-color: var(--surface-2) !important;
-    color: var(--text-main) !important;
-    border: 1px solid var(--border-soft) !important;
-    border-radius: 10px !important;
-    box-shadow: none !important;
-}
-
-[data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
-    color: var(--text-main) !important;
-    font-weight: 600 !important;
-}
-
-[data-testid="stSidebar"] .stButton > button {
-    background: var(--surface-2) !important;
-    color: var(--text-main) !important;
-    font-weight: 600 !important;
-    border: 1px solid var(--border-soft) !important;
-    border-radius: 10px !important;
-    width: 100% !important;
-    box-shadow: none !important;
-}
-
-[data-testid="stSidebar"] .stButton > button:hover {
-    background: var(--surface-3) !important;
-    border-color: var(--border-strong) !important;
-    color: #ffffff !important;
-}
 
 
 
@@ -602,9 +581,9 @@ render_html(
         padding: 0.38rem 0.68rem;
         border-radius: 999px;
         border: 1px solid var(--app-green-border);
-        background: rgba(250, 251, 253, 0.94);
+        background: rgba(243, 244, 239, 0.96);
         color: var(--app-green-accent-text);
-        box-shadow: 0 8px 18px rgba(29, 43, 70, 0.08);
+        box-shadow: 0 8px 18px rgba(53, 126, 155, 0.08);
         opacity: 0;
         transform: translateY(-6px);
         pointer-events: none;
@@ -806,113 +785,24 @@ if not theme_dark_mode:
 
         background:
 
-            radial-gradient(circle at top right, rgba(84, 124, 93, 0.10), transparent 30%),
+            radial-gradient(circle at top right, rgba(53, 126, 155, 0.12), transparent 30%),
 
-            radial-gradient(circle at top left, rgba(178, 209, 183, 0.24), transparent 26%),
+            radial-gradient(circle at top left, rgba(94, 119, 158, 0.18), transparent 26%),
 
-            #f4f8f1 !important;
-
-    }
-
-
-
-    [data-testid="stSidebar"] {
-
-        background: linear-gradient(180deg, #f7fbf6 0%, #edf4eb 100%) !important;
-
-        border-right: 1px solid rgba(84, 124, 93, 0.28) !important;
+            #f1f3f4 !important;
 
     }
 
-    [data-testid="stSidebar"] * {
 
-        color: #24362b !important;
 
-    }
-
-    [data-testid="stSidebar"] input,
-
-    [data-testid="stSidebar"] textarea {
-
-        background-color: #ffffff !important;
-
-        color: #24362b !important;
-
-        border: 1px solid rgba(84, 124, 93, 0.22) !important;
-
-        box-shadow: 0 0 0 1px rgba(178, 209, 183, 0.22) !important;
-
-    }
-
-    [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
-
-        color: #547c5d !important;
-
-        font-weight: 700 !important;
-
-    }
-
-    [data-testid="stSidebar"] .stButton > button {
-
-        background: linear-gradient(180deg, #5d8667, #4f7a5b) !important;
-
-        color: #f7fbf7 !important;
-
-        border: 1px solid rgba(79, 122, 91, 0.34) !important;
-
-        animation: none !important;
-
-        box-shadow: 0 8px 18px rgba(79, 122, 91, 0.12) !important;
-
-        border-radius: 10px !important;
-
-    }
-
-    [data-testid="stSidebar"] .stButton > button:hover {
-
-        background: linear-gradient(180deg, #6f9677, #5d8667) !important;
-
-        color: #f7fbf7 !important;
-
-        border-color: rgba(79, 122, 91, 0.52) !important;
-
-        box-shadow: 0 10px 22px rgba(79, 122, 91, 0.16) !important;
-
-    }
-
-    [data-testid="stSidebar"] .stButton > button * {
-
-        color: #f7fbf7 !important;
-
-    }
-
-    [data-testid="stSidebar"] .stButton > button:focus-visible {
-
-        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
-
-        outline-offset: 2px !important;
-
-    }
-
-    [data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type {
-
-        border-bottom: 1px solid rgba(84, 124, 93, 0.16) !important;
-
-    }
-
-    [data-testid="stSidebar"] [data-baseweb="checkbox"]:first-of-type > div:first-of-type p {
-
-        color: #547c5d !important;
-
-    }
 
 
 
     header[data-testid="stHeader"] {
 
-        background: rgba(252, 249, 255, 0.96) !important;
+        background: rgba(241, 243, 244, 0.96) !important;
 
-        border-bottom: 1px solid rgba(84, 124, 93, 0.2) !important;
+        border-bottom: 1px solid rgba(101, 122, 132, 0.2) !important;
 
     }
 
@@ -920,13 +810,13 @@ if not theme_dark_mode:
 
     html, body, [class*="css"] {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
     }
 
     h1, h2, h3 {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
     }
 
@@ -936,7 +826,7 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] .stMarkdown {
 
-        color: #627467 !important;
+        color: #657a84 !important;
 
     }
 
@@ -944,9 +834,9 @@ if not theme_dark_mode:
 
     [data-testid="stTitle"] {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
-        border-bottom: 1px solid rgba(84, 124, 93, 0.2) !important;
+        border-bottom: 1px solid rgba(101, 122, 132, 0.2) !important;
 
     }
 
@@ -954,23 +844,23 @@ if not theme_dark_mode:
 
     [data-testid="stMetric"] {
 
-        background: linear-gradient(180deg, #ffffff, #f2f7f0) !important;
+        background: linear-gradient(180deg, #ffffff, #edf2f5) !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.16) !important;
+        border: 1px solid rgba(101, 122, 132, 0.16) !important;
 
-        box-shadow: 0 8px 18px rgba(79, 122, 91, 0.08), inset 0 0 0 1px rgba(178, 209, 183, 0.2) !important;
+        box-shadow: 0 8px 18px rgba(53, 126, 155, 0.08), inset 0 0 0 1px rgba(184, 194, 222, 0.2) !important;
 
     }
 
     [data-testid="stMetricLabel"] > div {
 
-        color: #5f7363 !important;
+        color: #657a84 !important;
 
     }
 
     [data-testid="stMetricValue"] > div {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
     }
 
@@ -978,13 +868,13 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] .stButton > button {
 
-        background: linear-gradient(180deg, #5d8667, #4f7a5b) !important;
+        background: linear-gradient(180deg, #3f89a7, #357e9b) !important;
 
         color: #f7fbf7 !important;
 
-        border: 1px solid rgba(79, 122, 91, 0.34) !important;
+        border: 1px solid rgba(53, 126, 155, 0.34) !important;
 
-        box-shadow: 0 8px 18px rgba(79, 122, 91, 0.12) !important;
+        box-shadow: 0 8px 18px rgba(53, 126, 155, 0.14) !important;
 
         border-radius: 10px !important;
 
@@ -1000,13 +890,13 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] .stButton > button:hover {
 
-        background: linear-gradient(180deg, #6f9677, #5d8667) !important;
+        background: linear-gradient(180deg, #4a90ab, #3f89a7) !important;
 
         color: #f7fbf7 !important;
 
-        border-color: rgba(79, 122, 91, 0.52) !important;
+        border-color: rgba(53, 126, 155, 0.52) !important;
 
-        box-shadow: 0 10px 22px rgba(79, 122, 91, 0.16) !important;
+        box-shadow: 0 10px 22px rgba(53, 126, 155, 0.18) !important;
 
     }
 
@@ -1018,7 +908,7 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] .stButton > button:focus-visible {
 
-        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
+        outline: 3px solid rgba(53, 126, 155, 0.24) !important;
 
         outline-offset: 2px !important;
 
@@ -1036,11 +926,11 @@ if not theme_dark_mode:
 
         background-color: #ffffff !important;
 
-        color: #24362b !important;
+        color: #40484d !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.18) !important;
+        border: 1px solid rgba(101, 122, 132, 0.18) !important;
 
-        box-shadow: 0 0 0 1px rgba(178, 209, 183, 0.18) !important;
+        box-shadow: 0 0 0 1px rgba(184, 194, 222, 0.18) !important;
 
     }
 
@@ -1048,9 +938,9 @@ if not theme_dark_mode:
 
     [data-testid="stMain"] textarea:focus {
 
-        border-color: rgba(98, 143, 108, 0.42) !important;
+        border-color: rgba(53, 126, 155, 0.42) !important;
 
-        box-shadow: 0 0 0 3px rgba(98, 143, 108, 0.16) !important;
+        box-shadow: 0 0 0 3px rgba(53, 126, 155, 0.16) !important;
 
         animation: none !important;
 
@@ -1058,7 +948,7 @@ if not theme_dark_mode:
 
     div[data-testid="stTextInput"] label p {
 
-        color: #516455 !important;
+        color: #5d6f78 !important;
 
         font-weight: 700 !important;
 
@@ -1074,7 +964,7 @@ if not theme_dark_mode:
 
     div[data-testid="stTextInput"] input::placeholder {
 
-        color: #8a988c !important;
+        color: #8d9aa2 !important;
 
         opacity: 1 !important;
 
@@ -1082,19 +972,19 @@ if not theme_dark_mode:
 
     [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
 
-        background-color: #e4efe2 !important;
+        background-color: #e5f2f7 !important;
 
-        color: #46634c !important;
+        color: #2d6176 !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.22) !important;
+        border: 1px solid rgba(53, 126, 155, 0.22) !important;
 
     }
 
     [data-testid="stMultiSelect"] span[data-baseweb="tag"] * {
 
-        color: #46634c !important;
+        color: #2d6176 !important;
 
-        fill: #46634c !important;
+        fill: #2d6176 !important;
 
     }
 
@@ -1102,7 +992,7 @@ if not theme_dark_mode:
 
     [data-testid="stCheckbox"] label {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
     }
 
@@ -1110,33 +1000,33 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] > div {
 
-        border: 1px solid rgba(84, 124, 93, 0.2) !important;
+        border: 1px solid rgba(101, 122, 132, 0.2) !important;
 
         border-radius: 10px !important;
 
         background-color: #ffffff !important;
 
-        box-shadow: inset 0 0 0 1px rgba(178, 209, 183, 0.2) !important;
+        box-shadow: inset 0 0 0 1px rgba(184, 194, 222, 0.18) !important;
 
     }
 
     [data-testid="stDataFrame"] th {
 
-        background-color: #d8e6d5 !important;
+        background-color: #d8e1e6 !important;
 
-        color: #2d4936 !important;
+        color: #2d6176 !important;
 
     }
 
     [data-testid="stDataFrame"] tr:nth-child(even) {
 
-        background-color: rgba(220, 233, 219, 0.45) !important;
+        background-color: rgba(233, 238, 241, 0.75) !important;
 
     }
 
     [data-testid="stDataFrame"] tr:hover {
 
-        background-color: rgba(230, 240, 228, 0.88) !important;
+        background-color: rgba(229, 242, 247, 0.88) !important;
 
     }
 
@@ -1152,7 +1042,7 @@ if not theme_dark_mode:
 
         background-color: #ffffff !important;
 
-        color: #24183d !important;
+        color: #40484d !important;
 
         filter: none !important;
 
@@ -1202,9 +1092,9 @@ if not theme_dark_mode:
 
         background: rgba(255, 255, 255, 0.88) !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.16) !important;
+        border: 1px solid rgba(101, 122, 132, 0.16) !important;
 
-        color: #547c5d !important;
+        color: #357e9b !important;
 
         border-radius: 8px !important;
 
@@ -1216,13 +1106,13 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] [role="button"]:hover {
 
-        background: rgba(243, 248, 241, 0.98) !important;
+        background: rgba(229, 242, 247, 0.98) !important;
 
-        border-color: rgba(98, 143, 108, 0.42) !important;
+        border-color: rgba(53, 126, 155, 0.42) !important;
 
-        color: #547c5d !important;
+        color: #357e9b !important;
 
-        box-shadow: 0 2px 8px rgba(79, 122, 91, 0.08) !important;
+        box-shadow: 0 2px 8px rgba(53, 126, 155, 0.08) !important;
 
     }
 
@@ -1230,7 +1120,7 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] [role="button"]:focus-visible {
 
-        outline: 2px solid rgba(98, 143, 108, 0.28) !important;
+        outline: 2px solid rgba(53, 126, 155, 0.28) !important;
 
         outline-offset: 1px !important;
 
@@ -1240,9 +1130,9 @@ if not theme_dark_mode:
 
     [data-testid="stDataFrame"] [role="button"] svg {
 
-        fill: #547c5d !important;
+        fill: #357e9b !important;
 
-        stroke: #547c5d !important;
+        stroke: #357e9b !important;
 
     }
 
@@ -1252,15 +1142,15 @@ if not theme_dark_mode:
 
         background-color: rgba(255, 255, 255, 0.92) !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.2) !important;
+        border: 1px solid rgba(101, 122, 132, 0.2) !important;
 
     }
 
     div[data-testid="stAlert"][data-baseweb="notification"][kind="positive"] {
 
-        background-color: #edf8f1 !important;
+        background-color: #e9f4f8 !important;
 
-        border-left: 4px solid #2f7d57 !important;
+        border-left: 4px solid #357e9b !important;
 
     }
 
@@ -1278,15 +1168,15 @@ if not theme_dark_mode:
 
         background-color: rgba(255, 255, 255, 0.92) !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.2) !important;
+        border: 1px solid rgba(101, 122, 132, 0.2) !important;
 
-        box-shadow: inset 0 0 0 1px rgba(253, 208, 35, 0.16) !important;
+        box-shadow: inset 0 0 0 1px rgba(184, 194, 222, 0.18) !important;
 
     }
 
     [data-testid="stExpander"] summary {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
         font-weight: 700 !important;
 
@@ -1294,7 +1184,7 @@ if not theme_dark_mode:
 
     [data-testid="stExpander"] summary:focus-visible {
 
-        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
+        outline: 3px solid rgba(53, 126, 155, 0.24) !important;
 
         outline-offset: 2px !important;
 
@@ -1308,9 +1198,9 @@ if not theme_dark_mode:
 
     [data-testid="stHeading"] h3 {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
-        border-left: 4px solid #7aa66f !important;
+        border-left: 4px solid #5e779e !important;
 
     }
 
@@ -1318,7 +1208,7 @@ if not theme_dark_mode:
 
     [data-testid="stCaptionContainer"] {
 
-        color: #627467 !important;
+        color: #657a84 !important;
 
     }
 
@@ -1328,7 +1218,7 @@ if not theme_dark_mode:
 
         background-color: rgba(255, 255, 255, 0.92) !important;
 
-        border: 2px dashed rgba(84, 124, 93, 0.32) !important;
+        border: 2px dashed rgba(101, 122, 132, 0.32) !important;
 
     }
 
@@ -1344,29 +1234,29 @@ if not theme_dark_mode:
 
     [data-testid="stFileUploader"] * {
 
-        color: #547c5d !important;
+        color: #357e9b !important;
 
     }
 
     [data-testid="stFileUploader"] button {
 
-        background: #f5f9f2 !important;
+        background: #eef6fa !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.22) !important;
+        border: 1px solid rgba(101, 122, 132, 0.22) !important;
 
-        color: #547c5d !important;
+        color: #357e9b !important;
 
     }
 
     [data-testid="stFileUploader"] button * {
 
-        color: #547c5d !important;
+        color: #357e9b !important;
 
     }
 
     [data-testid="stFileUploader"]:hover {
 
-        border-color: rgba(98, 143, 108, 0.36) !important;
+        border-color: rgba(53, 126, 155, 0.36) !important;
 
     }
 
@@ -1374,9 +1264,9 @@ if not theme_dark_mode:
 
     button[data-baseweb="tab"] {
 
-        color: #547c5d !important;
+        color: #657a84 !important;
 
-        border: 1px solid rgba(84, 124, 93, 0.18) !important;
+        border: 1px solid rgba(101, 122, 132, 0.18) !important;
 
         border-bottom: 0 !important;
 
@@ -1390,19 +1280,19 @@ if not theme_dark_mode:
 
     button[data-baseweb="tab"][aria-selected="true"] {
 
-        color: #24362b !important;
+        color: #40484d !important;
 
-        border-color: rgba(84, 124, 93, 0.24) !important;
+        border-color: rgba(101, 122, 132, 0.24) !important;
 
-        background: #edf4eb !important;
+        background: #e9f4f8 !important;
 
-        box-shadow: inset 0 -3px 0 #7aa66f !important;
+        box-shadow: inset 0 -3px 0 #5e779e !important;
 
     }
 
     button[data-baseweb="tab"]:focus-visible {
 
-        outline: 3px solid rgba(98, 143, 108, 0.24) !important;
+        outline: 3px solid rgba(53, 126, 155, 0.24) !important;
 
         outline-offset: 2px !important;
 
@@ -1410,11 +1300,11 @@ if not theme_dark_mode:
 
 
 
-    ::-webkit-scrollbar-track { background: #edf4eb !important; }
+    ::-webkit-scrollbar-track { background: #e7ecef !important; }
 
-    ::-webkit-scrollbar-thumb { background: #97b39d !important; }
+    ::-webkit-scrollbar-thumb { background: #b7c5cd !important; }
 
-    ::-webkit-scrollbar-thumb:hover { background: #5d8667 !important; }
+    ::-webkit-scrollbar-thumb:hover { background: #657a84 !important; }
 
 
 
@@ -1422,27 +1312,27 @@ if not theme_dark_mode:
 
         background: linear-gradient(90deg, #ffffff 0%, #f6f6f2 100%) !important;
 
-        border: 1px solid rgba(101, 115, 103, 0.16) !important;
+        border: 1px solid rgba(101, 122, 132, 0.16) !important;
 
-        box-shadow: 0 4px 14px rgba(74, 92, 79, 0.06), inset 0 0 0 1px rgba(225, 231, 221, 0.45) !important;
+        box-shadow: 0 4px 14px rgba(64, 72, 77, 0.06), inset 0 0 0 1px rgba(216, 225, 230, 0.45) !important;
 
     }
 
     .lsu-banner-wrapper::after {
 
-        background: linear-gradient(90deg, #6d8372 0%, #d9e2d5 50%, #6d8372 100%) !important;
+        background: linear-gradient(90deg, #357e9b 0%, #b8c2de 50%, #357e9b 100%) !important;
 
     }
 
     .lsu-banner-title {
 
-        color: #2d4936 !important;
+        color: #2d6176 !important;
 
     }
 
     .lsu-banner-subtitle {
 
-        color: #627467 !important;
+        color: #657a84 !important;
 
     }
 
@@ -1475,23 +1365,6 @@ if not theme_dark_mode:
             f'--app-green-focus-ring: {active_theme["focus_ring"]};',
             f'--app-green-focus-border: {active_theme["focus_border"]};',
             f'--app-green-placeholder: {active_theme["placeholder"]};',
-            f'--app-green-sidebar-top: {active_theme["sidebar_bg_top"]};',
-            f'--app-green-sidebar-bottom: {active_theme["sidebar_bg_bottom"]};',
-            f'--app-green-sidebar-hover: {active_theme["sidebar_hover"]};',
-            f'--app-green-sidebar-selected: {active_theme["sidebar_selected"]};',
-            f'--app-green-sidebar-button-top: {active_theme["sidebar_button_top"]};',
-            f'--app-green-sidebar-button-bottom: {active_theme["sidebar_button_bottom"]};',
-            f'--app-green-sidebar-button-border: {active_theme["sidebar_button_border"]};',
-            f'--app-green-sidebar-button-text: {active_theme["sidebar_button_text"]};',
-            f'--app-green-sidebar-button-hover-top: {active_theme["sidebar_button_hover_top"]};',
-            f'--app-green-sidebar-button-hover-bottom: {active_theme["sidebar_button_hover_bottom"]};',
-            f'--app-green-sidebar-text: {active_theme["sidebar_text"]};',
-            f'--app-green-sidebar-text-muted: {active_theme["sidebar_text_muted"]};',
-            f'--app-green-sidebar-accent: {active_theme["sidebar_accent"]};',
-            f'--app-green-sidebar-accent-strong: {active_theme["sidebar_accent_strong"]};',
-            f'--app-green-sidebar-panel-top: {active_theme["sidebar_panel_top"]};',
-            f'--app-green-sidebar-panel-bottom: {active_theme["sidebar_panel_bottom"]};',
-            f'--app-green-sidebar-panel-border: {active_theme["sidebar_panel_border"]};',
             f'--app-green-header-bg: {active_theme["header_bg"]};',
             f'--app-green-tab-shadow: {active_theme["tab_shadow"]};',
             f'--app-green-scrollbar: {active_theme["scrollbar"]};',
@@ -1513,132 +1386,78 @@ if not theme_dark_mode:
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"] {
         background:
-            radial-gradient(circle at top right, rgba(124, 139, 127, 0.05), transparent 28%),
-            radial-gradient(circle at top left, rgba(232, 236, 229, 0.65), transparent 24%),
+            radial-gradient(circle at top right, rgba(84, 110, 122, 0.06), transparent 28%),
+            radial-gradient(circle at top left, rgba(232, 239, 245, 0.78), transparent 24%),
             linear-gradient(180deg, var(--app-green-bg) 0%, var(--app-green-bg-soft) 100%) !important;
     }
 
-    section[data-testid="stSidebar"],
-    [data-testid="stSidebar"] {
-        position: relative !important;
-        background: linear-gradient(180deg, var(--app-green-sidebar-top) 0%, var(--app-green-sidebar-bottom) 100%) !important;
-        border-right: 1px solid rgba(95, 119, 101, 0.26) !important;
-        box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.62), 10px 0 24px rgba(95, 119, 101, 0.06) !important;
+    html,
+    body,
+    [data-testid="stApp"],
+    [data-testid="stAppViewContainer"] {
+        background-color: var(--app-green-bg) !important;
     }
 
-    section[data-testid="stSidebar"]::before,
-    [data-testid="stSidebar"]::before,
-    [data-testid="stSidebarContent"]::before {
-        content: "" !important;
-        position: absolute !important;
-        inset: 0 !important;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(243, 247, 239, 0.06) 100%) !important;
-        opacity: 1 !important;
-        pointer-events: none !important;
-        z-index: 0 !important;
-    }
-
-    section[data-testid="stSidebar"] > div,
-    [data-testid="stSidebarContent"],
-    [data-testid="stSidebar"] > div:first-child,
-    [data-testid="stSidebar"] > div:first-child > div:first-child {
-        position: relative !important;
-        z-index: 1 !important;
-        background: linear-gradient(180deg, var(--app-green-sidebar-top) 0%, var(--app-green-sidebar-bottom) 100%) !important;
-    }
-
-    [data-testid="stSidebarContent"] {
-        border-right: 1px solid rgba(95, 119, 101, 0.24) !important;
-        box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.48) !important;
-    }
-
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"],
-    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] {
-        background: transparent !important;
-        position: relative !important;
-        z-index: 1 !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] {
-        gap: 0.06rem !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] > label {
-        margin: 0 !important;
-        padding: 0.18rem 0.34rem !important;
-        border-radius: 12px !important;
-        border: 1px solid var(--app-green-sidebar-panel-border) !important;
-        background: linear-gradient(180deg, var(--app-green-sidebar-panel-top), var(--app-green-sidebar-panel-bottom)) !important;
-        box-shadow: 0 4px 12px rgba(95, 119, 101, 0.06) !important;
-        transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
-        background: var(--app-green-sidebar-hover) !important;
-        border-color: var(--app-green-sidebar-accent) !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] {
-        background: linear-gradient(180deg, var(--app-green-sidebar-hover), var(--app-green-sidebar-selected)) !important;
-        border-color: var(--app-green-sidebar-accent) !important;
-        box-shadow: 0 8px 18px rgba(95, 119, 101, 0.10) !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] p {
-        color: var(--app-green-sidebar-accent-strong) !important;
-        font-weight: 700 !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] {
-        outline: 1px solid rgba(143, 162, 143, 0.30) !important;
-    }
-
-    [data-testid="stSidebar"] [data-baseweb="radio"] label,
-    [data-testid="stSidebar"] [data-baseweb="radio"] > div {
-        background: transparent !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
-        color: var(--app-green-sidebar-text-muted) !important;
-        margin: 0 !important;
-        line-height: 1.18 !important;
-    }
-
-    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {
-        color: var(--app-green-sidebar-accent-strong) !important;
-        transform: scale(0.9) !important;
-        margin-top: -1px !important;
-    }
-
-    [data-testid="stSidebar"] input[type="radio"],
-    [data-testid="stSidebar"] input[type="radio"] + div,
-    [data-testid="stSidebar"] [role="radiogroup"] svg {
-        accent-color: var(--app-green-sidebar-accent) !important;
-        color: var(--app-green-sidebar-accent) !important;
-        fill: var(--app-green-sidebar-accent) !important;
-        stroke: var(--app-green-sidebar-accent) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
-        margin-bottom: 0.18rem !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
-        margin: 0 !important;
-        line-height: 1.1 !important;
-        color: var(--app-green-sidebar-text) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
-        margin-top: 0.18rem !important;
-        margin-bottom: 0.6rem !important;
-        line-height: 1.25 !important;
-        color: var(--app-green-sidebar-text-muted) !important;
-    }
-
-    header[data-testid="stHeader"] {
+    header[data-testid="stHeader"],
+    header[data-testid="stHeader"] > div {
         background: var(--app-green-header-bg) !important;
         border-bottom: 1px solid var(--app-green-border-strong) !important;
+    }
+
+    header[data-testid="stHeader"] [data-testid="stToolbar"] {
+        background: transparent !important;
+    }
+
+    [data-testid="stDecoration"] {
+        background: linear-gradient(90deg, var(--app-green-banner-line-start) 0%, var(--app-green-banner-line-mid) 50%, var(--app-green-banner-line-end) 100%) !important;
+    }
+
+    header[data-testid="stHeader"] [data-testid="stToolbar"] button,
+    header[data-testid="stHeader"] [data-testid="stToolbar"] [role="button"] {
+        background: linear-gradient(180deg, var(--app-sidebar-panel-top), var(--app-sidebar-panel-bottom)) !important;
+        border: 1px solid var(--app-sidebar-panel-border) !important;
+        color: var(--app-sidebar-accent-strong) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 10px var(--app-sidebar-shadow) !important;
+    }
+
+    header[data-testid="stHeader"] [data-testid="stToolbar"] button:hover,
+    header[data-testid="stHeader"] [data-testid="stToolbar"] [role="button"]:hover {
+        background: linear-gradient(180deg, var(--app-sidebar-hover), var(--app-sidebar-selected)) !important;
+        border-color: var(--app-sidebar-accent) !important;
+        color: var(--app-sidebar-accent-strong) !important;
+    }
+
+    header[data-testid="stHeader"] [data-testid="stToolbar"] button svg,
+    header[data-testid="stHeader"] [data-testid="stToolbar"] [role="button"] svg {
+        fill: var(--app-sidebar-accent-strong) !important;
+        stroke: var(--app-sidebar-accent-strong) !important;
+    }
+
+    [data-baseweb="popover"] [role="menu"],
+    [data-baseweb="popover"] [role="dialog"] {
+        background: linear-gradient(180deg, var(--app-sidebar-panel-top), var(--app-sidebar-panel-bottom)) !important;
+        border: 1px solid var(--app-sidebar-panel-border) !important;
+        box-shadow: 0 14px 28px var(--app-sidebar-shadow-strong) !important;
+    }
+
+    [data-baseweb="popover"] [role="menu"] *,
+    [data-baseweb="popover"] [role="dialog"] * {
+        color: var(--app-sidebar-text) !important;
+    }
+
+    [data-baseweb="popover"] [role="menuitem"],
+    [data-baseweb="popover"] [role="option"],
+    [data-baseweb="popover"] button {
+        background: transparent !important;
+        color: var(--app-sidebar-text) !important;
+    }
+
+    [data-baseweb="popover"] [role="menuitem"]:hover,
+    [data-baseweb="popover"] [role="option"]:hover,
+    [data-baseweb="popover"] button:hover {
+        background: var(--app-sidebar-hover) !important;
+        color: var(--app-sidebar-accent-strong) !important;
     }
 
     html, body, [class*="css"] {
@@ -1661,60 +1480,41 @@ if not theme_dark_mode:
         color: var(--app-green-muted) !important;
     }
 
-    [data-testid="stSidebar"] .stButton > button,
-    [data-testid="stMain"] .stButton > button,
-    div[data-testid="stButton"] > button {
+    [data-testid="stMain"]:not(:has(.overview-page)) .stButton > button,
+    [data-testid="stMainBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button,
+    [data-testid="stAppViewBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button,
+    .block-container:not(:has(.overview-page)) div[data-testid="stButton"] > button {
         background: linear-gradient(180deg, var(--app-green-surface), var(--app-green-cell-shell)) !important;
         color: var(--app-green-accent-strong) !important;
         border: 1px solid var(--app-green-border-strong) !important;
-        box-shadow: 0 4px 10px rgba(84, 124, 93, 0.08) !important;
+        box-shadow: 0 4px 10px rgba(53, 126, 155, 0.08) !important;
     }
 
-    [data-testid="stSidebar"] .stButton > button {
-        background: linear-gradient(180deg, var(--app-green-sidebar-button-top), var(--app-green-sidebar-button-bottom)) !important;
-        color: var(--app-green-sidebar-button-text) !important;
-        border: 1px solid var(--app-green-sidebar-button-border) !important;
-        box-shadow: 0 6px 16px rgba(95, 119, 101, 0.08) !important;
-    }
-
-    [data-testid="stSidebar"] .stButton > button *,
-    [data-testid="stMain"] .stButton > button *,
-    div[data-testid="stButton"] > button * {
+    [data-testid="stMain"]:not(:has(.overview-page)) .stButton > button *,
+    [data-testid="stMainBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button *,
+    [data-testid="stAppViewBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button *,
+    .block-container:not(:has(.overview-page)) div[data-testid="stButton"] > button * {
         color: var(--app-green-accent-text) !important;
     }
 
-    [data-testid="stSidebar"] .stButton > button * {
-        color: var(--app-green-sidebar-button-text) !important;
-    }
-
-    [data-testid="stSidebar"] .stButton > button:hover,
-    [data-testid="stMain"] .stButton > button:hover,
-    div[data-testid="stButton"] > button:hover {
+    [data-testid="stMain"]:not(:has(.overview-page)) .stButton > button:hover,
+    [data-testid="stMainBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button:hover,
+    [data-testid="stAppViewBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button:hover,
+    .block-container:not(:has(.overview-page)) div[data-testid="stButton"] > button:hover {
         background: linear-gradient(180deg, var(--app-green-surface-2), var(--app-green-cell-header)) !important;
         color: var(--app-green-accent-hover) !important;
         border-color: var(--app-green-accent) !important;
-        box-shadow: 0 6px 16px rgba(84, 124, 93, 0.12) !important;
+        box-shadow: 0 6px 16px rgba(53, 126, 155, 0.12) !important;
         transform: translateY(-1px) !important;
     }
 
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background: linear-gradient(180deg, var(--app-green-sidebar-button-hover-top), var(--app-green-sidebar-button-hover-bottom)) !important;
-        color: var(--app-green-sidebar-button-text) !important;
-        border-color: var(--app-green-sidebar-accent) !important;
-        box-shadow: 0 10px 22px rgba(95, 119, 101, 0.12) !important;
-    }
-
-    [data-testid="stSidebar"] .stButton > button:hover *,
-    [data-testid="stMain"] .stButton > button:hover *,
-    div[data-testid="stButton"] > button:hover * {
+    [data-testid="stMain"]:not(:has(.overview-page)) .stButton > button:hover *,
+    [data-testid="stMainBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button:hover *,
+    [data-testid="stAppViewBlockContainer"]:not(:has(.overview-page)) div[data-testid="stButton"] > button:hover *,
+    .block-container:not(:has(.overview-page)) div[data-testid="stButton"] > button:hover * {
         color: var(--app-green-accent-hover) !important;
     }
 
-    [data-testid="stSidebar"] .stButton > button:hover * {
-        color: var(--app-green-sidebar-button-text) !important;
-    }
-
-    [data-testid="stSidebar"] .stButton > button:focus-visible,
     [data-testid="stMain"] .stButton > button:focus-visible,
     div[data-testid="stButton"] > button:focus-visible,
     [data-testid="stExpander"] summary:focus-visible,
@@ -1723,8 +1523,6 @@ if not theme_dark_mode:
         outline-offset: 2px !important;
     }
 
-    [data-testid="stSidebar"] input,
-    [data-testid="stSidebar"] textarea,
     [data-testid="stMain"] input[type="text"],
     [data-testid="stMain"] textarea,
     [data-testid="stSelectbox"] > div > div,
@@ -1735,49 +1533,9 @@ if not theme_dark_mode:
         background: var(--app-green-surface) !important;
         color: var(--app-green-text) !important;
         border: 1px solid var(--app-green-border-strong) !important;
-        box-shadow: inset 0 2px 5px rgba(84, 124, 93, 0.04), 0 3px 8px rgba(84, 124, 93, 0.06) !important;
+        box-shadow: inset 0 2px 5px rgba(101, 122, 132, 0.04), 0 3px 8px rgba(53, 126, 155, 0.06) !important;
     }
 
-    [data-testid="stSidebar"] input,
-    [data-testid="stSidebar"] textarea,
-    [data-testid="stSidebar"] [data-baseweb="select"] > div,
-    [data-testid="stSidebar"] [data-baseweb="input"] > div {
-        background: linear-gradient(180deg, var(--app-green-sidebar-panel-top), var(--app-green-sidebar-panel-bottom)) !important;
-        color: var(--app-green-sidebar-text) !important;
-        border: 1px solid var(--app-green-sidebar-panel-border) !important;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 12px rgba(95, 119, 101, 0.04) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stExpander"],
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] {
-        background: linear-gradient(180deg, var(--app-green-sidebar-panel-top), var(--app-green-sidebar-panel-bottom)) !important;
-        border: 1px solid var(--app-green-sidebar-panel-border) !important;
-        border-radius: 14px !important;
-        box-shadow: 0 6px 16px rgba(95, 119, 101, 0.05) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary,
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] *,
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] section,
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] [class*="uploadDropzone"] {
-        background: transparent !important;
-        color: var(--app-green-sidebar-text) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] > div,
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] section,
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] [class*="uploadDropzone"] {
-        border-radius: 12px !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] button {
-        background: linear-gradient(180deg, #ffffff, #f2f6ef) !important;
-        border: 1px solid var(--app-green-sidebar-panel-border) !important;
-        color: var(--app-green-sidebar-button-text) !important;
-        box-shadow: 0 4px 12px rgba(95, 119, 101, 0.06) !important;
-    }
-
-    [data-testid="stSidebar"] input::placeholder,
     [data-testid="stMain"] input[type="text"]::placeholder,
     div[data-testid="stTextInput"] input::placeholder {
         color: var(--app-green-placeholder) !important;
@@ -1790,23 +1548,8 @@ if not theme_dark_mode:
         box-shadow: 0 0 0 3px var(--app-green-focus-ring) !important;
     }
 
-    div[data-testid="stTextInput"] label p,
-    [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p {
+    div[data-testid="stTextInput"] label p {
         color: var(--app-green-accent-text) !important;
-    }
-
-    [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p,
-    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
-    [data-testid="stSidebar"] .stCaption {
-        color: var(--app-green-sidebar-text) !important;
-    }
-
-    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
-    [data-testid="stSidebar"] .stCaption,
-    [data-testid="stSidebar"] [role="radiogroup"] > label [data-testid="stMarkdownContainer"] p {
-        color: var(--app-green-sidebar-text-muted) !important;
     }
 
     [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
@@ -1911,31 +1654,31 @@ if not theme_dark_mode:
         stroke: var(--app-green-accent-strong) !important;
     }
 
-    [data-testid="stFileUploader"],
-    [data-testid="stExpander"] {
+    [data-testid="stMain"] [data-testid="stFileUploader"],
+    [data-testid="stMain"] [data-testid="stExpander"] {
         background: rgba(255, 255, 255, 0.92) !important;
         border: 1px solid var(--app-green-border) !important;
         box-shadow: none !important;
     }
 
-    [data-testid="stFileUploader"] > div,
-    [data-testid="stFileUploader"] section,
-    [data-testid="stFileUploader"] [class*="uploadDropzone"] {
+    [data-testid="stMain"] [data-testid="stFileUploader"] > div,
+    [data-testid="stMain"] [data-testid="stFileUploader"] section,
+    [data-testid="stMain"] [data-testid="stFileUploader"] [class*="uploadDropzone"] {
         background: rgba(255, 255, 255, 0.96) !important;
     }
 
-    [data-testid="stFileUploader"] *,
-    [data-testid="stExpander"] summary {
+    [data-testid="stMain"] [data-testid="stFileUploader"] *,
+    [data-testid="stMain"] [data-testid="stExpander"] summary {
         color: var(--app-green-text) !important;
     }
 
-    [data-testid="stFileUploader"] button {
+    [data-testid="stMain"] [data-testid="stFileUploader"] button {
         background: #f7faf5 !important;
         border: 1px solid var(--app-green-border) !important;
         color: var(--app-green-accent-text) !important;
     }
 
-    [data-testid="stFileUploader"]:hover {
+    [data-testid="stMain"] [data-testid="stFileUploader"]:hover {
         border-color: var(--app-green-border-strong) !important;
     }
 
@@ -1969,7 +1712,7 @@ if not theme_dark_mode:
     .lsu-banner-wrapper {
         background: linear-gradient(90deg, #ffffff 0%, #f3f4ef 100%) !important;
         border: 1px solid var(--app-green-border) !important;
-        box-shadow: 0 8px 20px rgba(84, 124, 93, 0.06) !important;
+        box-shadow: 0 8px 20px rgba(53, 126, 155, 0.06) !important;
     }
 
     .lsu-banner-wrapper::after {
@@ -1980,108 +1723,7 @@ if not theme_dark_mode:
         unsafe_allow_html=True,
     )
 
-    if theme_variant == "Uni":
-        st.markdown(
-            """
-        <style>
-        [data-testid="stAppViewContainer"],
-        [data-testid="stMain"] {
-            background:
-                radial-gradient(circle at top right, rgba(29, 43, 70, 0.06), transparent 26%),
-                radial-gradient(circle at top left, rgba(185, 198, 216, 0.32), transparent 22%),
-                linear-gradient(180deg, var(--app-green-bg) 0%, var(--app-green-bg-soft) 100%) !important;
-        }
-        [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #fafbfe 0%, #edf1f7 100%) !important;
-            border-right: 1px solid var(--app-green-border-strong) !important;
-        }
-        [data-testid="stSidebar"] .stButton > button,
-        [data-testid="stMain"] .stButton > button,
-        div[data-testid="stButton"] > button {
-            background: linear-gradient(180deg, #ffffff, #f1f4f8) !important;
-            color: var(--app-green-accent-text) !important;
-            border: 1px solid var(--app-green-border) !important;
-            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.06) !important;
-        }
-        [data-testid="stSidebar"] .stButton > button:hover,
-        [data-testid="stMain"] .stButton > button:hover,
-        div[data-testid="stButton"] > button:hover {
-            background: linear-gradient(180deg, #f6f8fc, #eaf0f7) !important;
-            color: var(--app-green-accent-hover) !important;
-            border-color: var(--app-green-border-strong) !important;
-            box-shadow: 0 10px 22px rgba(29, 43, 70, 0.10) !important;
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
-            background: var(--app-green-hover) !important;
-            border-color: var(--app-green-border) !important;
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] {
-            background: linear-gradient(180deg, #eef3f9, #e4ebf4) !important;
-            border-color: var(--app-green-border-strong) !important;
-            box-shadow: 0 6px 14px rgba(29, 43, 70, 0.08) !important;
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] > label[data-checked="true"] p,
-        [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {
-            color: var(--app-green-accent-strong) !important;
-        }
-        [data-testid="stMetric"] {
-            background: linear-gradient(180deg, #ffffff, #f1f4f8) !important;
-            border: 1px solid var(--app-green-border) !important;
-            box-shadow: 0 10px 24px rgba(29, 43, 70, 0.06) !important;
-        }
-        [data-testid="stDataFrame"],
-        [data-testid="stDataEditor"] {
-            background: linear-gradient(180deg, #e4e9f0, #dbe3ed) !important;
-            border: 1px solid var(--app-green-border-strong) !important;
-            box-shadow: 0 14px 28px rgba(29, 43, 70, 0.10) !important;
-        }
-        [data-testid="stDataFrame"] th,
-        [data-testid="stDataEditor"] th {
-            background: linear-gradient(180deg, #31476f, #1d2b46) !important;
-            color: #eef3f9 !important;
-        }
-        [data-testid="stDataFrame"] button,
-        [data-testid="stDataFrame"] [role="button"],
-        [data-testid="stDataEditor"] button,
-        [data-testid="stDataEditor"] [role="button"],
-        [data-testid="stFileUploader"] button {
-            background: #f4f7fc !important;
-            color: var(--app-green-accent-text) !important;
-            border: 1px solid var(--app-green-border) !important;
-        }
-        [data-testid="stFileUploader"],
-        [data-testid="stExpander"] {
-            background: rgba(255, 255, 255, 0.95) !important;
-            border: 1px solid var(--app-green-border) !important;
-        }
-        [data-testid="stFileUploader"] * ,
-        [data-testid="stExpander"] summary {
-            color: var(--app-green-text) !important;
-        }
-        button[data-baseweb="tab"][aria-selected="true"] {
-            box-shadow: inset 0 -3px 0 #1d2b46 !important;
-        }
-        .app-busy-indicator {
-            border-color: var(--app-green-border-strong) !important;
-            background: rgba(249, 251, 254, 0.96) !important;
-            color: var(--app-green-accent-text) !important;
-            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.10) !important;
-        }
-        .tra-progress-step.active::before,
-        .tra-progress-step.complete::before,
-        .tra-progress-step.active .tra-progress-badge,
-        .tra-progress-step.complete .tra-progress-badge {
-            background: linear-gradient(90deg, #31476f, #1d2b46) !important;
-        }
-        .tra-source-option.primary {
-            background: linear-gradient(180deg, #f2f6fb, #e7edf5) !important;
-            border-color: var(--app-green-border-strong) !important;
-            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.08) !important;
-        }
-        </style>
-        """,
-            unsafe_allow_html=True,
-        )
+    st.markdown(build_sidebar_theme_css(active_theme), unsafe_allow_html=True)
 
 
 
@@ -2388,7 +2030,16 @@ def save_server_roles(path: str, roles_df: pd.DataFrame) -> pd.DataFrame:
 
     cleaned = clean_server_roles_df(roles_df)
 
-    cleaned.to_csv(path, index=False)
+    try:
+        cleaned.to_csv(path, index=False)
+        st.session_state.pop("server_role_map_save_error", None)
+    except OSError as exc:
+        if exc.errno == errno.ENOSPC:
+            st.session_state["server_role_map_save_error"] = (
+                "Server role mapping could not be saved because this machine is out of disk space."
+            )
+            return cleaned
+        raise
 
     return cleaned
 
@@ -5510,10 +5161,10 @@ def render_copy_button(text: str, button_label: str, component_key: str) -> None
         f"""
         <div style="display:flex; gap:10px; align-items:center;">
             <button id="{component_key}" {disabled_attr}
-                style="background:linear-gradient(180deg,#5d8667,#4f7a5b);color:#f7fbf7;border:1px solid #4f7a5b;border-radius:10px;padding:0.6rem 1rem;font-weight:700;cursor:{cursor_style};opacity:{opacity};box-shadow:0 8px 18px rgba(79,122,91,0.16);">
+                style="background:linear-gradient(180deg,#3f89a7,#357e9b);color:#f7fbf7;border:1px solid #357e9b;border-radius:10px;padding:0.6rem 1rem;font-weight:700;cursor:{cursor_style};opacity:{opacity};box-shadow:0 8px 18px rgba(53,126,155,0.16);">
                 {html_escape(button_label)}
             </button>
-            <span id="{component_key}_msg" style="font-family:sans-serif;font-size:0.9rem;color:#5f7363;"></span>
+            <span id="{component_key}_msg" style="font-family:sans-serif;font-size:0.9rem;color:#657a84;"></span>
         </div>
         <script>
         const btn = document.getElementById("{component_key}");
@@ -5787,15 +5438,15 @@ def render_ticket_response_assistant() -> None:
         """
         <style>
         .tra-hero {
-            background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,247,239,0.96));
-            border: 1px solid rgba(90, 128, 99, 0.14);
+            background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(231,239,244,0.99));
+            border: 1px solid rgba(53, 126, 155, 0.24);
             border-radius: 18px;
             padding: 0.72rem 0.9rem 0.78rem 0.9rem;
             margin: 0.05rem 0 0.55rem 0;
-            box-shadow: 0 10px 24px rgba(68, 97, 76, 0.06);
+            box-shadow: 0 12px 28px rgba(53, 126, 155, 0.08);
         }
         .tra-kicker {
-            color: #6b806f;
+            color: #5E779E;
             font-size: 0.72rem;
             font-weight: 800;
             letter-spacing: 0.12em;
@@ -5806,12 +5457,12 @@ def render_ticket_response_assistant() -> None:
             font-size: 1.52rem;
             font-weight: 760;
             letter-spacing: -0.03em;
-            color: #24362b;
+            color: #2F4350;
             line-height: 1.05;
             margin-bottom: 0.22rem;
         }
         .tra-hero-sub {
-            color: #627467;
+            color: #657A84;
             font-size: 0.88rem;
             line-height: 1.36;
             max-width: 54rem;
@@ -5834,12 +5485,12 @@ def render_ticket_response_assistant() -> None:
             display: block;
             height: 7px;
             border-radius: 999px;
-            background: var(--app-green-border);
+            background: rgba(94, 119, 158, 0.24);
             margin-bottom: 0.48rem;
         }
         .tra-progress-step.active::before,
         .tra-progress-step.complete::before {
-            background: linear-gradient(90deg, var(--app-green-accent), var(--app-green-accent-strong));
+            background: linear-gradient(90deg, #357E9B, #5E779E);
         }
         .tra-progress-badge {
             position: absolute;
@@ -5851,21 +5502,21 @@ def render_ticket_response_assistant() -> None:
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--app-green-surface-3);
-            border: 1px solid var(--app-green-border);
-            color: var(--app-green-muted);
+            background: rgba(241, 243, 244, 0.98);
+            border: 1px solid rgba(94, 119, 158, 0.24);
+            color: #657A84;
             font-size: 0.82rem;
             font-weight: 800;
         }
         .tra-progress-step.active .tra-progress-badge,
         .tra-progress-step.complete .tra-progress-badge {
-            background: linear-gradient(180deg, var(--app-green-accent), var(--app-green-accent-strong));
-            border-color: var(--app-green-border-strong);
+            background: linear-gradient(180deg, #357E9B, #5E779E);
+            border-color: rgba(53, 126, 155, 0.52);
             color: #ffffff;
-            box-shadow: 0 10px 24px rgba(29, 43, 70, 0.18);
+            box-shadow: 0 10px 24px rgba(53, 126, 155, 0.18);
         }
         .tra-progress-label {
-            color: #24362b;
+            color: #2F4350;
             font-size: 0.88rem;
             font-weight: 680;
             line-height: 1.18;
@@ -5873,37 +5524,37 @@ def render_ticket_response_assistant() -> None:
             margin-top: 0.12rem;
         }
         .tra-progress-copy {
-            color: #6a7d6e;
+            color: #657A84;
             font-size: 0.75rem;
             line-height: 1.24;
             margin-top: 0.08rem;
             padding-left: 0.15rem;
         }
         .tra-card {
-            background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,247,239,0.96));
-            border: 1px solid rgba(90, 128, 99, 0.14);
+            background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(236,242,245,0.99));
+            border: 1px solid rgba(101, 122, 132, 0.22);
             border-radius: 18px;
             padding: 0.68rem 0.82rem 0.75rem 0.82rem;
             margin-bottom: 0.55rem;
-            box-shadow: 0 10px 24px rgba(68, 97, 76, 0.05);
+            box-shadow: 0 12px 26px rgba(53, 126, 155, 0.07);
         }
         .tra-card-title {
             font-size: 0.76rem;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.12em;
-            color: #6b806f;
+            color: #5E779E;
             margin-bottom: 0.46rem;
         }
         .tra-card-headline {
-            color: #24362b;
+            color: #2F4350;
             font-size: 1.04rem;
             font-weight: 720;
             line-height: 1.18;
             margin-bottom: 0.16rem;
         }
         .tra-card-subcopy {
-            color: #627467;
+            color: #657A84;
             font-size: 0.78rem;
             line-height: 1.32;
             margin-bottom: 0.55rem;
@@ -5916,17 +5567,17 @@ def render_ticket_response_assistant() -> None:
             align-items: stretch;
         }
         .tra-source-option {
-            background: linear-gradient(180deg, rgba(250,252,249,0.98), rgba(239,245,238,0.98));
-            border: 1px solid rgba(90, 128, 99, 0.12);
+            background: linear-gradient(180deg, rgba(247,250,251,0.99), rgba(236,242,245,0.99));
+            border: 1px solid rgba(101, 122, 132, 0.2);
             border-radius: 16px;
             padding: 0.68rem;
             min-height: 5.5rem;
             box-shadow: none;
         }
         .tra-source-option.primary {
-            background: linear-gradient(180deg, rgba(237,246,239,0.98), rgba(228,240,229,0.98));
-            border-color: var(--app-green-border-strong);
-            box-shadow: 0 8px 18px rgba(29, 43, 70, 0.08);
+            background: linear-gradient(180deg, rgba(229, 236, 248, 0.99), rgba(216, 226, 242, 0.99));
+            border-color: rgba(94, 119, 158, 0.42);
+            box-shadow: 0 10px 22px rgba(53, 126, 155, 0.11);
         }
         .tra-source-icon {
             font-size: 1.55rem;
@@ -5934,14 +5585,14 @@ def render_ticket_response_assistant() -> None:
             margin-bottom: 0.42rem;
         }
         .tra-source-title {
-            color: #24362b;
+            color: #2F4350;
             font-size: 0.94rem;
             font-weight: 700;
             line-height: 1.18;
             margin-bottom: 0.22rem;
         }
         .tra-source-copy {
-            color: #627467;
+            color: #657A84;
             font-size: 0.77rem;
             line-height: 1.28;
         }
@@ -5952,8 +5603,8 @@ def render_ticket_response_assistant() -> None:
             margin: 0.08rem 0 0.45rem 0;
         }
         .tra-meta-chip {
-            background: rgba(248, 251, 246, 0.98);
-            border: 1px solid rgba(90, 128, 99, 0.12);
+            background: linear-gradient(180deg, rgba(247,250,252,0.99), rgba(238,243,246,0.99));
+            border: 1px solid rgba(94, 119, 158, 0.18);
             border-radius: 14px;
             padding: 0.5rem 0.62rem;
         }
@@ -5961,13 +5612,13 @@ def render_ticket_response_assistant() -> None:
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: #6a7d6e;
+            color: #5E779E;
             margin-bottom: 0.18rem;
         }
         .tra-meta-value {
             font-size: 0.9rem;
             font-weight: 700;
-            color: #24362b;
+            color: #2F4350;
             word-break: break-word;
         }
         .tra-section-label {
@@ -5975,7 +5626,7 @@ def render_ticket_response_assistant() -> None:
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: #6a7d6e;
+            color: #5E779E;
             margin: 0.12rem 0 0.22rem 0;
         }
         .tra-field-label {
@@ -5983,11 +5634,11 @@ def render_ticket_response_assistant() -> None:
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: #6a7d6e;
+            color: #657A84;
             margin: 0 0 0.18rem 0.02rem;
         }
         .tra-upload-hint {
-            color: #627467;
+            color: #657A84;
             font-size: 0.74rem;
             line-height: 1.24;
             margin-top: 0.18rem;
@@ -6003,6 +5654,8 @@ def render_ticket_response_assistant() -> None:
             min-height: 178px;
             padding: 0.48rem 0.58rem 0.56rem 0.58rem;
             border-radius: 18px;
+            background: linear-gradient(180deg, rgba(244,248,250,0.99), rgba(233,240,244,0.99));
+            border: 1px dashed rgba(94, 119, 158, 0.34);
         }
         @media (max-width: 980px) {
             .tra-progress-line,
@@ -6018,6 +5671,9 @@ def render_ticket_response_assistant() -> None:
             min-height: 2rem !important;
             padding-top: 0.18rem !important;
             padding-bottom: 0.18rem !important;
+            background: rgba(255,255,255,0.99) !important;
+            border: 1px solid rgba(101, 122, 132, 0.28) !important;
+            color: #2F4350 !important;
         }
         div[data-testid="stTextArea"] {
             margin-bottom: 0.25rem;
@@ -6026,12 +5682,48 @@ def render_ticket_response_assistant() -> None:
             border-radius: 8px !important;
             padding-top: 0.3rem !important;
             padding-bottom: 0.3rem !important;
+            background: rgba(255,255,255,0.99) !important;
+            border: 1px solid rgba(101, 122, 132, 0.28) !important;
+            color: #2F4350 !important;
         }
         div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
             gap: 0.12rem;
         }
         div[data-testid="stTextArea"] textarea[disabled] {
             opacity: 0.98;
+            background: linear-gradient(180deg, rgba(244,248,250,0.99), rgba(233,240,244,0.99)) !important;
+            color: #425761 !important;
+            -webkit-text-fill-color: #425761 !important;
+        }
+        div[data-testid="stTextInput"] input:disabled {
+            background: linear-gradient(180deg, rgba(244,248,250,0.99), rgba(233,240,244,0.99)) !important;
+            color: #425761 !important;
+            -webkit-text-fill-color: #425761 !important;
+        }
+        div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+            background: rgba(255,255,255,0.99) !important;
+            border: 1px solid rgba(101, 122, 132, 0.28) !important;
+            color: #2F4350 !important;
+        }
+        div[data-testid="stButton"] > button,
+        div[data-testid="stDownloadButton"] > button,
+        a[data-testid="stLinkButton"] {
+            background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(241,243,244,0.99)) !important;
+            border: 1px solid rgba(101, 122, 132, 0.28) !important;
+            color: #357E9B !important;
+        }
+        div[data-testid="stButton"] > button:hover,
+        div[data-testid="stDownloadButton"] > button:hover,
+        a[data-testid="stLinkButton"]:hover {
+            border-color: rgba(53, 126, 155, 0.5) !important;
+            color: #2D6E88 !important;
+        }
+        div[data-testid="stExpander"] {
+            background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(239,244,247,0.99));
+            border: 1px solid rgba(94, 119, 158, 0.2);
+        }
+        div[data-testid="stAlert"] {
+            border: 1px solid rgba(94, 119, 158, 0.22);
         }
         </style>
         """,
@@ -7835,6 +7527,11 @@ def apply_confirmed_healthy_override(df_in: pd.DataFrame) -> pd.DataFrame:
 
 
 workspace_options = ["Health Status", "Ticket Related", "Project Related"]
+workspace_button_labels = {
+    "Health Status": ":material/ecg_heart:  Health Status",
+    "Ticket Related": ":material/confirmation_number:  Ticket Dashboard",
+    "Project Related": ":material/construction:  Project Builder",
+}
 ticket_area_options = ["Open Tickets", "Ticket Response Assistant"]
 health_area_options = ["Overview", "Action Queue", "Trends", "Retention"]
 project_area_options = ["Camera Installation Builder"]
@@ -7861,27 +7558,75 @@ if overview_nav_target == "action_queue":
         del st.query_params["overview_nav"]
     except Exception:
         st.query_params.clear()
+elif overview_nav_target == "open_tickets":
+    st.session_state["app_workspace"] = "Ticket Related"
+    st.session_state["app_area_ticket"] = "Open Tickets"
+    try:
+        del st.query_params["overview_nav"]
+    except Exception:
+        st.query_params.clear()
+elif overview_nav_target == "retention":
+    st.session_state["app_workspace"] = "Health Status"
+    st.session_state["app_area_health"] = "Retention"
+    try:
+        del st.query_params["overview_nav"]
+    except Exception:
+        st.query_params.clear()
 
-selected_theme_variant = st.sidebar.radio(
-    "Color Scheme",
-    options=list(THEME_VARIANTS.keys()),
-    key="app_theme_variant",
-    horizontal=True,
-)
-if selected_theme_variant != theme_variant:
-    st.session_state.app_theme_variant = selected_theme_variant
-    st.rerun()
-st.sidebar.caption("Switch between the current sage theme and a cooler slate-accented theme.")
+st.session_state.setdefault("app_workspace", workspace_options[0])
+st.session_state.setdefault("app_area_health", health_area_options[0])
+st.session_state.setdefault("app_area_ticket", ticket_area_options[0])
+st.session_state.setdefault("app_area_project", project_area_options[0])
 
-selected_workspace = st.sidebar.radio("Workspace", workspace_options, key="app_workspace")
-st.sidebar.caption(workspace_help.get(selected_workspace, ""))
+_current_workspace_for_brand = str(st.session_state.get("app_workspace", workspace_options[0]))
+render_sidebar_brand_card(_current_workspace_for_brand)
+st.sidebar.markdown("<div style='height:0.38rem;'></div>", unsafe_allow_html=True)
+workspace_button_container = st.sidebar.container(border=True)
+with workspace_button_container:
+    st.markdown('<div class="workspace-button-group-marker"></div>', unsafe_allow_html=True)
+    for workspace_name in workspace_options:
+        if st.button(
+            workspace_button_labels.get(workspace_name, workspace_name),
+            key=f"workspace_btn_{workspace_name}",
+            use_container_width=True,
+            type="primary" if st.session_state.get("app_workspace") == workspace_name else "secondary",
+        ):
+            st.session_state["app_workspace"] = workspace_name
+            st.rerun()
+
+selected_workspace = str(st.session_state.get("app_workspace", workspace_options[0]))
+
 if selected_workspace == "Health Status":
-    selected_area = st.sidebar.radio("Area", health_area_options, key="app_area_health")
+    area_options = health_area_options
+    area_state_key = "app_area_health"
 elif selected_workspace == "Ticket Related":
-    selected_area = st.sidebar.radio("Area", ticket_area_options, key="app_area_ticket")
+    area_options = ticket_area_options
+    area_state_key = "app_area_ticket"
 else:
-    selected_area = st.sidebar.radio("Area", project_area_options, key="app_area_project")
-st.sidebar.caption(area_help.get(selected_area, ""))
+    area_options = project_area_options
+    area_state_key = "app_area_project"
+
+render_sidebar_section_label("Main Navigation")
+area_button_labels = {
+    "Overview": ":material/grid_view:  Overview",
+    "Action Queue": ":material/content_paste_search:  Action Queue",
+    "Trends": ":material/trending_up:  Trends",
+    "Retention": ":material/history:  Retention",
+    "Open Tickets": ":material/confirmation_number:  Open Tickets",
+    "Ticket Response Assistant": ":material/robot_2:  Response Assistant",
+    "Camera Installation Builder": ":material/construction:  Installation Builder",
+}
+for area_name in area_options:
+    if st.sidebar.button(
+        area_button_labels.get(area_name, area_name),
+        key=f"area_btn_{selected_workspace}_{area_name}",
+        use_container_width=True,
+        type="primary" if st.session_state.get(area_state_key, area_options[0]) == area_name else "secondary",
+    ):
+        st.session_state[area_state_key] = area_name
+        st.rerun()
+
+selected_area = str(st.session_state.get(area_state_key, area_options[0]))
 
 csv_path = DEFAULT_SITE_HEALTH_PATH
 
@@ -7897,51 +7642,34 @@ if "site_health_last_upload_signature" not in st.session_state:
 
     st.session_state.site_health_last_upload_signature = None
 
-with st.sidebar.expander("Health Data Source", expanded=(selected_workspace == "Health Status")):
-    st.caption("Workspace input")
-    st.caption("Choose the Avigilon Site Health export the health workspace should use.")
-    csv_path = st.text_input(
-        "CSV path",
-        value=DEFAULT_SITE_HEALTH_PATH,
-        help="Default is the repo-local export next to app.py. Use Uploaded file if you want a one-off CSV without changing the saved path.",
-    )
-
-    source_mode = st.radio(
-
-        "Data source",
-
-        options=["CSV path", "Uploaded file"],
-
-        key="site_health_source_mode",
-        help="Dropping a CSV switches to Uploaded file automatically. You can still switch back to CSV path manually.",
-    )
-
-    uploaded = st.file_uploader(
-
-        "Upload Site Health CSV",
-
-        type=["csv"],
-
-        key=f"site_health_upload_{st.session_state.site_health_upload_nonce}",
-        help="Use this for a temporary local file when you do not want to change the path field.",
-
-    )
-
-    if source_mode == "Uploaded file" and uploaded is not None:
-        if st.button("Clear Uploaded File"):
-
-            st.session_state.site_health_upload_nonce += 1
-
-            st.session_state.site_health_source_mode = "CSV path"
-
-            st.session_state.site_health_last_upload_signature = None
-            st.rerun()
-
-    load_clicked = st.button("Load / Reload Data")
-
-    hard_reset_clicked = st.button("Hard Reset Caches")
-
-    st.caption("Use the scheduled Avigilon Site Health CSV export here when working in the health workspace.")
+if selected_workspace == "Health Status":
+    with st.sidebar.expander("Health Data Source", expanded=False):
+        csv_path = st.text_input(
+            "Local Path",
+            value=DEFAULT_SITE_HEALTH_PATH,
+            help="Default is the repo-local export next to app.py.",
+        )
+        uploaded = st.file_uploader(
+            "Upload Site Health CSV",
+            type=["csv"],
+            key=f"site_health_upload_{st.session_state.site_health_upload_nonce}",
+            help="Use this for a temporary local file when you do not want to change the path field.",
+        )
+        source_mode = "Uploaded file" if uploaded is not None else "CSV path"
+        st.session_state.site_health_source_mode = source_mode
+        if uploaded is not None:
+            if st.button("Clear Uploaded File", use_container_width=True):
+                st.session_state.site_health_upload_nonce += 1
+                st.session_state.site_health_source_mode = "CSV path"
+                st.session_state.site_health_last_upload_signature = None
+                st.rerun()
+    load_clicked = False
+    hard_reset_clicked = False
+else:
+    uploaded = None
+    source_mode = st.session_state.site_health_source_mode
+    load_clicked = False
+    hard_reset_clicked = False
 
 upload_signature = None
 
@@ -7952,12 +7680,6 @@ if uploaded is not None:
 if upload_signature is not None and upload_signature != st.session_state.site_health_last_upload_signature:
 
     st.session_state.site_health_last_upload_signature = upload_signature
-
-    if st.session_state.site_health_source_mode != "Uploaded file":
-
-        st.session_state.site_health_source_mode = "Uploaded file"
-
-        st.rerun()
 
 elif uploaded is None and st.session_state.site_health_last_upload_signature is not None:
 
@@ -7989,44 +7711,49 @@ if hard_reset_clicked:
 
 
 
-with st.sidebar.expander("Ticket Automation Settings", expanded=False):
+tdx_email_to = TDX_HELPDESK_EMAIL
+smtp_host = os.getenv("SMTP_HOST", "")
+smtp_port = int(os.getenv("SMTP_PORT", "587"))
+smtp_username = os.getenv("SMTP_USERNAME", "")
+smtp_password = os.getenv("SMTP_PASSWORD", "")
+smtp_from_email = os.getenv("SMTP_FROM", "")
+ticket_threshold_hours = 24
 
-    tdx_email_to = TDX_HELPDESK_EMAIL
+if selected_workspace == "Ticket Related":
+    with st.sidebar.expander("Ticket Automation Settings", expanded=False):
 
-    st.caption("Administrative settings")
-    st.caption(f"Help tickets are sent to: {TDX_HELPDESK_EMAIL}")
+        st.caption("Administrative settings")
+        st.caption(f"Help tickets are sent to: {TDX_HELPDESK_EMAIL}")
 
-    smtp_host = st.text_input("SMTP host", value=os.getenv("SMTP_HOST", ""))
+        smtp_host = st.text_input("SMTP host", value=smtp_host)
 
-    smtp_port = st.number_input("SMTP port", min_value=1, max_value=65535, value=int(os.getenv("SMTP_PORT", "587")))
+        smtp_port = st.number_input("SMTP port", min_value=1, max_value=65535, value=smtp_port)
 
-    smtp_username = st.text_input("SMTP username", value=os.getenv("SMTP_USERNAME", ""))
+        smtp_username = st.text_input("SMTP username", value=smtp_username)
 
-    smtp_password = st.text_input("SMTP password", value=os.getenv("SMTP_PASSWORD", ""), type="password")
+        smtp_password = st.text_input("SMTP password", value=smtp_password, type="password")
 
-    smtp_from_email = st.text_input("From email", value=os.getenv("SMTP_FROM", ""))
+        smtp_from_email = st.text_input("From email", value=smtp_from_email)
 
-    ticket_threshold_hours = st.number_input(
+        ticket_threshold_hours = st.number_input(
 
-        "Auto-ticket threshold (hours)",
+            "Auto-ticket threshold (hours)",
 
-        min_value=1,
+            min_value=1,
 
-        max_value=168,
+            max_value=168,
 
-        value=24,
+            value=24,
 
-        step=1,
+            step=1,
 
-        help="Auto-queue a ticket when a device remains offline at or above this threshold.",
+            help="Auto-queue a ticket when a device remains offline at or above this threshold.",
 
-    )
+        )
 
 
 
 generate_weekly_digest_clicked = False
-if selected_workspace == "Health Status":
-    generate_weekly_digest_clicked = st.sidebar.button("Generate Weekly Digest")
 
 
 
@@ -8118,13 +7845,8 @@ except Exception as e:
 
 
 if active_source_label:
-
     if selected_workspace == "Health Status":
-        with st.sidebar.container():
-            st.markdown("#### Current source")
-            st.caption(active_source_label)
-            if active_source_detail:
-                st.caption(active_source_detail)
+        pass
 
 
 
@@ -8216,6 +7938,9 @@ if selected_workspace == "Health Status":
 
         st.caption("Advanced admin")
         st.caption(f"Map file: {SERVER_ROLE_MAP_PATH}")
+        save_error = str(st.session_state.get("server_role_map_save_error", "") or "")
+        if save_error:
+            st.warning(save_error)
 
         st.caption(
 
@@ -8266,8 +7991,10 @@ if selected_workspace == "Health Status":
             if st.button("Save Server Role Mapping", key="save_server_role_mapping"):
 
                 save_server_roles(SERVER_ROLE_MAP_PATH, edited_roles)
-
-                st.success("Saved server role mapping.")
+                if st.session_state.get("server_role_map_save_error"):
+                    st.warning(str(st.session_state["server_role_map_save_error"]))
+                else:
+                    st.success("Saved server role mapping.")
 
                 st.rerun()
 
@@ -8527,7 +8254,7 @@ if selected_workspace == "Health Status":
 
 search_text = st.session_state.get("search_text", "")
 if selected_workspace == "Health Status":
-    st.sidebar.caption("Use the filters below to narrow the loaded export across Overview, Action Queue, Trends, and Retention.")
+    render_sidebar_section_label("Configuration & Tools")
 
 
 
@@ -8667,6 +8394,35 @@ tickets_editor_states = ["Open", "Suppressed"]
 tickets_editor_df = tickets_df[tickets_df["ticket_state"].isin(tickets_editor_states)].copy()
 
 pending_tickets_df = tickets_df[tickets_df["ticket_state"] == "Pending Send"].copy()
+
+if selected_workspace == "Health Status":
+    export_filename = f"system-pulse-{selected_area.lower().replace(' ', '-')}.csv"
+    export_frame = filtered_devices if selected_area in {"Overview", "Action Queue", "Trends", "Retention"} else all_df
+    with st.sidebar.container():
+        render_sidebar_html(
+            '<div class="sidebar-bottom-shell"><div class="sidebar-bottom-meta"></div></div>'
+        )
+        st.sidebar.button(
+            ":material/settings:  Settings",
+            use_container_width=True,
+            key="sidebar_settings_button",
+            type="secondary",
+        )
+        generate_weekly_digest_clicked = st.sidebar.button(
+            "Generate Weekly Digest",
+            use_container_width=True,
+            key="sidebar_generate_weekly_digest_bottom",
+            type="secondary",
+        )
+        st.sidebar.download_button(
+            ":material/file_export:  Export Report",
+            data=export_frame.to_csv(index=False).encode("utf-8"),
+            file_name=export_filename,
+            mime="text/csv",
+            use_container_width=True,
+            key="sidebar_export_report",
+            type="primary",
+        )
 
 issue_keys = set(issues_df["key"].astype(str)) if "key" in issues_df.columns else set()
 
@@ -11788,28 +11544,28 @@ render_html(
         margin: 0.35rem 0 0.4rem 0;
         padding: 1rem 1.05rem;
         border-radius: 18px;
-        border: 1px solid rgba(90, 128, 99, 0.14);
+        border: 1px solid rgba(101, 122, 132, 0.14);
         background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 247, 239, 0.96)),
-            radial-gradient(circle at top right, rgba(122, 166, 111, 0.12), transparent 36%);
-        box-shadow: 0 12px 28px rgba(68, 97, 76, 0.08);
+            linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(237, 242, 245, 0.96)),
+            radial-gradient(circle at top right, rgba(53, 126, 155, 0.12), transparent 36%);
+        box-shadow: 0 12px 28px rgba(53, 126, 155, 0.08);
     }
     .ops-command-kicker {
         font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.12em;
-        color: #6b806f;
+        color: #657A84;
         margin-bottom: 0.25rem;
         font-weight: 700;
     }
     .ops-command-title {
         font-size: 1.2rem;
         font-weight: 800;
-        color: #24362b;
+        color: #40484D;
         line-height: 1.1;
     }
     .ops-command-subtitle {
-        color: #627467;
+        color: #657A84;
         font-size: 0.93rem;
         line-height: 1.45;
         max-width: 58rem;
@@ -11821,13 +11577,13 @@ render_html(
         gap: 0.7rem;
     }
     .ops-command-card {
-        background: linear-gradient(180deg, rgba(252, 253, 251, 0.98), rgba(239, 245, 238, 0.98));
-        border: 1px solid rgba(90, 128, 99, 0.12);
+        background: linear-gradient(180deg, rgba(252, 253, 253, 0.98), rgba(237, 242, 245, 0.98));
+        border: 1px solid rgba(101, 122, 132, 0.12);
         border-radius: 14px;
         padding: 0.8rem 0.85rem 0.72rem 0.85rem;
     }
     .ops-command-label {
-        color: #6b806f;
+        color: #657A84;
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -11835,7 +11591,7 @@ render_html(
         margin-bottom: 0.24rem;
     }
     .ops-command-value {
-        color: #24362b;
+        color: #40484D;
         font-size: 1.35rem;
         font-weight: 800;
         line-height: 1.05;
@@ -11852,9 +11608,9 @@ render_html(
         min-height: 2rem;
         padding: 0.38rem 0.68rem;
         border-radius: 999px;
-        border: 1px solid rgba(90, 128, 99, 0.16);
-        background: rgba(248, 251, 246, 0.98);
-        color: #506456;
+        border: 1px solid rgba(101, 122, 132, 0.16);
+        background: rgba(248, 250, 251, 0.98);
+        color: #5D6F78;
         font-size: 0.78rem;
         font-weight: 600;
     }
@@ -11877,10 +11633,10 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
                 max-width: 36rem;
                 padding: 0.85rem 1rem;
                 border-radius: 14px;
-                border: 1px solid rgba(90, 128, 99, 0.16);
-                background: linear-gradient(180deg, rgba(244,248,244,0.96), rgba(237,243,236,0.96));
-                color: #526759;
-                box-shadow: 0 8px 18px rgba(68, 97, 76, 0.04);
+                border: 1px solid rgba(101, 122, 132, 0.16);
+                background: linear-gradient(180deg, rgba(248,250,251,0.96), rgba(237,242,245,0.96));
+                color: #5D6F78;
+                box-shadow: 0 8px 18px rgba(53, 126, 155, 0.04);
             ">
                 No queued or open tickets right now.
             </div>
@@ -12313,6 +12069,7 @@ def render_overview_section() -> None:
 
     retention_metric_note = "Retention OK not loaded"
     retention_metric_value = "N/A"
+    retention_violations = 0
     if retention_available and "Retention OK" in filtered_devices.columns:
         retention_violations = int((~filtered_devices["Retention OK"].fillna(False)).sum())
         retention_metric_value = f"{retention_violations:,}"
@@ -12333,6 +12090,15 @@ def render_overview_section() -> None:
                 "label": "Devices In Scope",
                 "value": f"{len(filtered_devices):,}",
                 "note": "Current filtered device set",
+                "href": "#inventory-controls-anchor",
+                "status_label": "Live scope",
+                "status_tone": "live",
+                "trend": (
+                    f"{(len(overview_issue_subset) / len(filtered_devices)):.1%} flagged"
+                    if len(filtered_devices)
+                    else "0% flagged"
+                ),
+                "trend_tone": "neutral",
             },
             {
                 "label": "Needs Attention",
@@ -12340,54 +12106,67 @@ def render_overview_section() -> None:
                 "note": "Offline, visible-offline, or error-driven",
                 "priority": True,
                 "href": "?overview_nav=action_queue",
+                "status_label": "Needs review",
+                "status_tone": "attention",
+                "trend": (
+                    f"{(len(overview_issue_subset) / len(filtered_devices)):.1%} of scope"
+                    if len(filtered_devices)
+                    else "0% of scope"
+                ),
+                "trend_tone": "attention",
             },
             {
                 "label": "Open Tickets",
                 "value": f"{len(scoped_open_tickets):,}",
                 "note": f"{ping_exception_count:,} hard ping exceptions",
+                "href": "?overview_nav=open_tickets",
+                "status_label": "Ticket queue",
+                "status_tone": "neutral",
+                "trend": (
+                    f"{(len(scoped_open_tickets) / max(len(filtered_devices), 1)):.1%} of scope"
+                    if len(scoped_open_tickets)
+                    else "0 active"
+                ),
+                "trend_tone": "neutral",
             },
             {
                 "label": "Retention / Stability",
                 "value": retention_metric_value,
                 "note": retention_metric_note,
+                "href": "?overview_nav=retention",
+                "status_label": "Stable signal" if retention_metric_value in {"N/A", "0"} else "Watchlist",
+                "status_tone": "live" if retention_metric_value in {"N/A", "0"} else "attention",
+                "trend": (
+                    f"{(retention_violations / len(filtered_devices)):.1%} impacted"
+                    if retention_available and "Retention OK" in filtered_devices.columns and len(filtered_devices)
+                    else ""
+                ),
+                "trend_tone": "attention" if retention_metric_value not in {"N/A", "0"} else "live",
             },
         ]
     )
 
-    is_uni_theme = theme_variant == "Uni"
-    overview_location_palette = (
-        ["#1D2B46", "#31476F", "#476088", "#60779D", "#7A90B1", "#95A8C4", "#B2C0D6", "#D0D9E6", "#E3EAF2"]
-        if is_uni_theme
-        else OVERVIEW_GREENS
-    )
-    health_color_map = (
-        {
-            "Online": "#31476F",
-            "Offline": "#E4545D",
-            "Offline (visible)": "#8DA2C0",
-            "Unknown": "#B5C0D2",
-        }
-        if is_uni_theme
-        else {
-            "Online": "#5C9071",
-            "Offline": "#B08A72",
-            "Offline (visible)": "#C2A18D",
-            "Unknown": "#91A39A",
-        }
-    )
-    ping_color_map = (
-        {
-            "Pingable": "#31476F",
-            "Do Not Ping": "#E4545D",
-            "Pending / Unknown": "#8DA2C0",
-        }
-        if is_uni_theme
-        else {
-            "Pingable": "#5C9071",
-            "Do Not Ping": "#B08A72",
-            "Pending / Unknown": "#91A39A",
-        }
-    )
+    overview_location_palette = [
+        "#357E9B",
+        "#5E779E",
+        "#657A84",
+        "#4D92AE",
+        "#7B90B0",
+        "#8E9DA5",
+        "#AFC9D6",
+        "#B8C2DE",
+    ]
+    health_color_map = {
+        "Online": "#357E9B",
+        "Offline": "#C85A4B",
+        "Offline (visible)": "#5E779E",
+        "Unknown": "#AAB5BC",
+    }
+    ping_color_map = {
+        "Pingable": "#357E9B",
+        "Do Not Ping": "#C85A4B",
+        "Pending / Unknown": "#AAB5BC",
+    }
 
     health_col_name = "Health State" if "Health State" in filtered_devices.columns else ("Health" if "Health" in filtered_devices.columns else None)
     health_counts = pd.Series(dtype="int64")
@@ -12455,10 +12234,11 @@ def render_overview_section() -> None:
             data=ping_counts,
             color_map=ping_color_map,
             empty_message="No ping results are available in the current scope.",
+            chart_kind="donut",
         )
 
     render_overview_section_kicker("Inventory Controls")
-    render_html('<div class="overview-shortcuts-row"></div>')
+    render_html('<div id="inventory-controls-anchor"></div><div class="overview-shortcuts-row"></div>')
 
     def handle_scope_click(s_key):
         st.session_state["health_scope_mode"] = s_key
@@ -12609,7 +12389,7 @@ def render_overview_section() -> None:
             autoHeaderHeight=True,
         )
         gb.configure_grid_options(
-            rowHeight=38,
+            rowHeight=34,
             headerHeight=44,
             suppressMovableColumns=True,
             ensureDomOrder=True,
@@ -12626,6 +12406,13 @@ def render_overview_section() -> None:
                 minWidth=90,
                 tooltipField=str(col),
             )
+        overview_grid_header_top = "#657A84"
+        overview_grid_header_bottom = "#357E9B"
+        overview_grid_border = "rgba(101, 122, 132, 0.18)"
+        overview_grid_row = "#FBFCFC"
+        overview_grid_row_even = "#F3F6F8"
+        overview_grid_row_hover = "#E8F1F5"
+        overview_grid_text = "#40484D"
         AgGrid(
             overview_table_df,
             gridOptions=gb.build(),
@@ -12639,36 +12426,41 @@ def render_overview_section() -> None:
             fit_columns_on_grid_load=False,
             custom_css={
                 ".ag-root-wrapper": {
-                    "border": "1px solid rgba(90, 128, 99, 0.22)",
+                    "border": f"1px solid {overview_grid_border}",
                     "border-radius": "18px",
                     "overflow": "hidden",
-                    "box-shadow": "0 12px 24px rgba(68, 97, 76, 0.08)",
+                    "box-shadow": "0 14px 28px rgba(15, 23, 42, 0.08)",
                 },
                 ".ag-header": {
-                    "background": f"linear-gradient(180deg, {active_theme['accent']}, {active_theme['accent_strong']})",
-                    "border-bottom": "1px solid rgba(196, 220, 195, 0.18)",
+                    "background": f"linear-gradient(180deg, {overview_grid_header_top}, {overview_grid_header_bottom})",
+                    "border-bottom": "1px solid rgba(255, 255, 255, 0.10)",
                 },
                 ".ag-header-cell": {
-                    "background": f"linear-gradient(180deg, {active_theme['accent']}, {active_theme['accent_strong']})",
-                    "border-right": "1px solid rgba(196, 220, 195, 0.08)",
+                    "background": f"linear-gradient(180deg, {overview_grid_header_top}, {overview_grid_header_bottom})",
+                    "border-right": "1px solid rgba(255, 255, 255, 0.10)",
                 },
                 ".ag-header-cell-text": {
-                    "color": "#d8ead6",
+                    "color": "#f8fafc",
                     "font-weight": "700",
+                    "font-size": "15px",
                 },
                 ".ag-header-icon": {
-                    "color": "#d8ead6",
+                    "color": "#f8fafc",
                 },
                 ".ag-row": {
-                    "background-color": "#fffef8",
-                    "color": "#274231",
-                    "border-bottom": "1px solid rgba(90, 128, 99, 0.08)",
+                    "background-color": overview_grid_row,
+                    "color": overview_grid_text,
+                    "border-bottom": f"1px solid {overview_grid_border}",
+                },
+                ".ag-cell": {
+                    "line-height": "32px",
+                    "font-size": "13px",
                 },
                 ".ag-row-even": {
-                    "background-color": "#f2f8f0",
+                    "background-color": overview_grid_row_even,
                 },
                 ".ag-row-hover": {
-                    "background-color": "#e8f2e6 !important",
+                    "background-color": f"{overview_grid_row_hover} !important",
                 },
             },
         )
@@ -12707,6 +12499,70 @@ def render_action_required_tab():
     issues_with_ping = apply_action_required_health_badge_rules(issues_with_ping)
 
     issues_with_ping = compute_priority_table(issues_with_ping)
+
+    preview_df = issues_with_ping.copy()
+    if "Priority Score" in preview_df.columns:
+        preview_df["Priority Score"] = pd.to_numeric(preview_df["Priority Score"], errors="coerce").fillna(0)
+        preview_df = preview_df.sort_values(["Priority Score", "Device Name Base"], ascending=[False, True])
+    preview_rows = []
+    for _, row in preview_df.head(6).iterrows():
+        score = float(pd.to_numeric(pd.Series([row.get("Priority Score", 0)]), errors="coerce").fillna(0).iloc[0])
+        if score >= 80:
+            severity_label = "Critical"
+            severity_bg = "rgba(225, 29, 72, 0.10)"
+            severity_fg = "#BE123C"
+            action_label = "Triage"
+        elif score >= 45:
+            severity_label = "Warning"
+            severity_bg = "rgba(217, 119, 6, 0.12)"
+            severity_fg = "#B45309"
+            action_label = "Monitor"
+        else:
+            severity_label = "Routine"
+            severity_bg = "rgba(13, 148, 136, 0.10)"
+            severity_fg = "#0F766E"
+            action_label = "Schedule"
+        issue_name = html_escape(str(row.get("Device Name Base") or row.get("key") or "Unknown item"))
+        issue_reason = html_escape(str(row.get("Priority Reason", "Needs review")))
+        issue_eta = html_escape(str(row.get("Offline For (hrs)", row.get("Ping Status", "")) or "Review now"))
+        preview_rows.append(
+            f"""
+            <tr>
+                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);color:#1E293B;font-weight:600;">{issue_name}<div style="color:#64748B;font-size:0.78rem;font-weight:500;margin-top:0.16rem;">{issue_reason}</div></td>
+                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);"><span style="display:inline-flex;padding:0.24rem 0.56rem;border-radius:999px;background:{severity_bg};color:{severity_fg};font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">{severity_label}</span></td>
+                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);color:#475569;">{issue_eta}</td>
+                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);color:#0F172A;font-weight:700;">{action_label}</td>
+            </tr>
+            """
+        )
+    if preview_rows:
+        render_html(
+            """
+            <div style="margin:0.65rem 0 1rem 0;padding:1.05rem 1.08rem;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96));box-shadow:0 10px 24px rgba(15,23,42,0.06);">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;">
+                    <div>
+                        <div style="color:#475569;font-size:0.74rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Action Queue &amp; System Events</div>
+                        <div style="color:#1E293B;font-size:1rem;font-weight:750;letter-spacing:-0.02em;margin-top:0.2rem;">Operational triage preview</div>
+                    </div>
+                </div>
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Source Item</th>
+                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Severity</th>
+                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Signal</th>
+                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            + "".join(preview_rows)
+            + """
+                    </tbody>
+                </table>
+            </div>
+            """
+        )
 
     issues_display_order = [
 
