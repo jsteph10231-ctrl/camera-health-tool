@@ -150,7 +150,7 @@ def render_sidebar_brand_card(workspace: str = "Health Status") -> None:
                     "font-size:22px;font-weight:800;letter-spacing:-0.03em;line-height:1.0;margin:0;'>"
                     f"{html_escape(title)}</div>"
                     f"<div style='color:#54616B;font-family:Inter,\"Segoe UI\",\"Helvetica Neue\",Arial,sans-serif;"
-                    "font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;"
+                    "font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;"
                     "line-height:1.1;margin-top:10px;white-space:nowrap;'>"
                     f"{html_escape(subtitle)}</div>"
                     "</div>"
@@ -1742,9 +1742,14 @@ TRANSITIONS_PATH = os.path.join("data", "state_transitions.csv")
 
 SERVER_ROLE_MAP_PATH = os.path.join("data", "server_roles.csv")
 
+DEFAULT_SERVER_ROLE_ASSIGNMENTS = {
+    **{f"avigilon-camAI-client{i}.lsu.edu": "Primary" for i in range(1, 16)},
+    **{f"avigilon-camAI-client{i}.lsu.edu": "Secondary" for i in range(16, 21)},
+}
+
 TDX_HELPDESK_EMAIL = "helpdesk@lsu.edu"
 
-RETENTION_POLICY_DAYS = 28
+RETENTION_POLICY_DAYS = 20
 
 
 
@@ -2024,6 +2029,21 @@ def clean_server_roles_df(roles_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
+def default_server_roles_df() -> pd.DataFrame:
+
+    return clean_server_roles_df(
+        pd.DataFrame(
+            [
+                {"Server Name": server_name, "Role": role}
+                for server_name, role in DEFAULT_SERVER_ROLE_ASSIGNMENTS.items()
+            ]
+        )
+    )
+
+
+
+
+
 def save_server_roles(path: str, roles_df: pd.DataFrame) -> pd.DataFrame:
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -2068,6 +2088,36 @@ def load_server_roles(path: str, observed_servers: list[str] | None = None) -> p
 
 
     cleaned = clean_server_roles_df(existing)
+    default_roles = default_server_roles_df()
+    default_role_map = server_role_map_from_df(default_roles)
+
+    if cleaned.empty:
+
+        cleaned = default_roles.copy()
+
+    else:
+
+        cleaned["Role"] = cleaned.apply(
+            lambda row: normalize_server_role(row.get("Role", ""))
+            or default_role_map.get(canonical_server_name_key(row.get("Server Name", "")), ""),
+            axis=1,
+        )
+
+        missing_default_servers = sorted(
+            set(default_roles["Server Name"].tolist()) - set(cleaned["Server Name"].tolist())
+        )
+
+        if missing_default_servers:
+
+            cleaned = clean_server_roles_df(
+                pd.concat(
+                    [
+                        cleaned,
+                        default_roles[default_roles["Server Name"].isin(missing_default_servers)],
+                    ],
+                    ignore_index=True,
+                )
+            )
 
     if observed_servers:
 
@@ -2077,7 +2127,15 @@ def load_server_roles(path: str, observed_servers: list[str] | None = None) -> p
 
         if missing:
 
-            add_df = pd.DataFrame({"Server Name": missing, "Role": [""] * len(missing)})
+            add_df = pd.DataFrame(
+                {
+                    "Server Name": missing,
+                    "Role": [
+                        default_role_map.get(canonical_server_name_key(server_name), "")
+                        for server_name in missing
+                    ],
+                }
+            )
 
             cleaned = clean_server_roles_df(pd.concat([cleaned, add_df], ignore_index=True))
 
@@ -2158,45 +2216,17 @@ def compute_action_required_mask(
 
     )
 
-    visible_bool = (
-
-        df.get("Visible_bool", pd.Series([True] * len(df), index=df.index))
-
-        .fillna(True)
-
-        .astype(bool)
-
+    ping_status = clean_text_series(
+        df.get(ping_status_col, pd.Series([""] * len(df), index=df.index))
     )
+    ping_lower = ping_status.str.lower()
+    ping_is_good = ping_lower.str.contains("pingable", na=False) & ~ping_lower.str.contains("not pingable", na=False)
+    not_pingable = ping_lower.str.contains("not pingable", na=False)
+    ping_error = ping_lower.str.contains("ping error", na=False)
 
-    _, hard_error_flags = classify_error_flags(
-
-        df.get("Error Flags", pd.Series([""] * len(df), index=df.index))
-
-    )
-
-
-
-    offline_strict = health_state.eq("Offline") | (~visible_bool)
+    offline_strict = health_state.eq("Offline")
 
     offline_visible = health_state.eq("Offline (but still visible)")
-
-    if use_ping_results:
-
-        ping_status = clean_text_series(
-            df.get(ping_status_col, pd.Series([""] * len(df), index=df.index))
-        )
-        ping_lower = ping_status.str.lower()
-        ping_is_good = ping_lower.str.contains("pingable", na=False) & ~ping_lower.str.contains("not pingable", na=False)
-
-
-        offline_visible_needs_attention = offline_visible & (hard_error_flags | ~ping_is_good)
-
-    else:
-
-        # Keep issue counts stable for a fixed CSV instead of letting async ping checks
-        # change the headline number after load.
-        offline_visible_needs_attention = offline_visible
-    base_mask = (offline_strict | hard_error_flags | offline_visible_needs_attention).fillna(False)
 
 
 
@@ -2218,8 +2248,6 @@ def compute_action_required_mask(
 
         )
 
-        any_conn_value = primary_conn.ne("") | secondary_conn.ne("")
-
         primary_red = (
 
             primary_conn.str.startswith("\U0001F534")
@@ -2236,13 +2264,31 @@ def compute_action_required_mask(
 
         )
 
-        online_no_red_connections = health_state.eq("Online") & any_conn_value & ~(primary_red | secondary_red)
+        both_connections_present = primary_conn.ne("") & secondary_conn.ne("")
+        both_connections_healthy = both_connections_present & ~primary_red & ~secondary_red
+        any_connected = ~primary_red & primary_conn.ne("") | (~secondary_red & secondary_conn.ne(""))
+        no_server_connection = ~any_connected
+        partial_server_connection = any_connected & ~both_connections_healthy
+        retention_days = pd.to_numeric(
+            df.get("Retention (days)", pd.Series([pd.NA] * len(df), index=df.index)),
+            errors="coerce",
+        )
+        retention_good = retention_days.ge(20)
+        fully_healthy = health_state.eq("Online") & ping_is_good & both_connections_healthy & retention_good
+        base_mask = (
+            offline_strict
+            | offline_visible
+            | not_pingable
+            | ping_error
+            | no_server_connection
+            | partial_server_connection
+        )
 
-        return (base_mask & ~online_no_red_connections).fillna(False)
+        return (base_mask & ~fully_healthy).fillna(False)
 
 
 
-    return base_mask
+    return (offline_strict | offline_visible | not_pingable | ping_error).fillna(False)
 
 
 
@@ -2320,11 +2366,11 @@ def build_physical_key(df: pd.DataFrame) -> pd.Series:
 
     Priority:
 
-      1) MAC Address (best for primary/secondary duplicates)
+      1) Device ID base (best cross-server bridge when one replica omits MAC/serial)
 
-      2) Serial Number
+      2) MAC Address
 
-      3) Device ID base (strips .camNN)
+      3) Serial Number
 
       4) Device Name Base
 
@@ -2348,7 +2394,7 @@ def build_physical_key(df: pd.DataFrame) -> pd.Series:
 
 
 
-    physical = mac.combine_first(serial).combine_first(dev_base).combine_first(name_base).fillna("UNKNOWN")
+    physical = dev_base.combine_first(mac).combine_first(serial).combine_first(name_base).fillna("UNKNOWN")
 
     return physical
 
@@ -3467,15 +3513,21 @@ def compute_priority_table(devices_df: pd.DataFrame) -> pd.DataFrame:
 
     ping_lower = ping_status.str.lower()
 
-    _, hard_error_flags = classify_error_flags(
+    def connected_from_col(col_name: str) -> pd.Series:
 
-        out.get("Error Flags", pd.Series([""] * len(out), index=out.index))
+        if col_name not in out.columns:
 
-    )
+            return pd.Series(False, index=out.index)
 
-    offline_hours = pd.to_numeric(out.get("Offline For (hrs)", 0.0), errors="coerce").fillna(0.0).clip(lower=0)
+        s = clean_text_series(out[col_name])
 
-    missing_ip = out.get("IP Address", pd.Series([""] * len(out), index=out.index)).fillna("").astype(str).str.strip().eq("")
+        return (
+
+            s.str.startswith("\U0001F7E2")
+
+            | s.str.contains(r"\(\s*Connected\s*\)", case=False, regex=True)
+
+        )
 
 
 
@@ -3487,6 +3539,18 @@ def compute_priority_table(devices_df: pd.DataFrame) -> pd.DataFrame:
 
     ping_error_mask = ping_lower.str.contains("ping error", na=False)
 
+    primary_connected = connected_from_col("Primary Connection")
+
+    secondary_connected = connected_from_col("Secondary Connection")
+
+    any_connected_mask = primary_connected | secondary_connected
+
+    both_connected_mask = primary_connected & secondary_connected
+
+    no_server_connection_mask = ~any_connected_mask
+
+    partial_server_connection_mask = any_connected_mask & ~both_connected_mask
+
 
 
     score = pd.Series(0.0, index=out.index, dtype=float)
@@ -3495,13 +3559,13 @@ def compute_priority_table(devices_df: pd.DataFrame) -> pd.DataFrame:
 
     score += offline_visible_mask.astype(float) * 25
 
-    score += hard_error_flags.astype(float) * 10
+    score += not_pingable_mask.astype(float) * 25
 
-    score += (not_pingable_mask | ping_error_mask).astype(float) * 15
+    score += ping_error_mask.astype(float) * 12
 
-    score += offline_hours.clip(upper=72)
+    score += no_server_connection_mask.astype(float) * 18
 
-    score += missing_ip.astype(float) * -5
+    score += partial_server_connection_mask.astype(float) * 8
 
 
 
@@ -3525,19 +3589,13 @@ def compute_priority_table(devices_df: pd.DataFrame) -> pd.DataFrame:
 
             reasons.append("Ping Error")
 
-        if bool(hard_error_flags.loc[idx]):
+        if bool(no_server_connection_mask.loc[idx]):
 
-            reasons.append("Hard Error Flags")
+            reasons.append("No Server Connection")
 
-        hrs = float(offline_hours.loc[idx])
+        elif bool(partial_server_connection_mask.loc[idx]):
 
-        if hrs > 0:
-
-            reasons.append(f"{hrs:.1f}h offline")
-
-        if bool(missing_ip.loc[idx]):
-
-            reasons.append("Missing IP")
+            reasons.append("Single Server Connection")
 
         return "; ".join(reasons) if reasons else "No active issues"
 
@@ -3599,11 +3657,21 @@ def build_weekly_digest(
 
         tracking = pd.DataFrame(columns=["current_health_state", "first_offline_at", "offline_hours"])
 
-    tracking["current_health_state"] = tracking.get("current_health_state", "").fillna("").astype(str)
+    tracking["current_health_state"] = tracking.get(
+        "current_health_state",
+        pd.Series([""] * len(tracking), index=tracking.index),
+    ).fillna("").astype(str)
 
-    tracking["offline_hours"] = pd.to_numeric(tracking.get("offline_hours", 0.0), errors="coerce").fillna(0.0)
+    tracking["offline_hours"] = pd.to_numeric(
+        tracking.get("offline_hours", pd.Series([0.0] * len(tracking), index=tracking.index)),
+        errors="coerce",
+    ).fillna(0.0)
 
-    first_offline_ts = pd.to_datetime(tracking.get("first_offline_at", ""), utc=True, errors="coerce")
+    first_offline_ts = pd.to_datetime(
+        tracking.get("first_offline_at", pd.Series([""] * len(tracking), index=tracking.index)),
+        utc=True,
+        errors="coerce",
+    )
 
     offline_now_tracking = tracking["current_health_state"].ne("Online")
 
@@ -3615,13 +3683,20 @@ def build_weekly_digest(
 
     tickets = tickets_df.copy()
 
-    tickets["ticket_state"] = tickets.get("ticket_state", "").fillna("").astype(str)
+    tickets["ticket_state"] = tickets.get(
+        "ticket_state",
+        pd.Series([""] * len(tickets), index=tickets.index),
+    ).fillna("").astype(str)
 
     pending_count = int(tickets["ticket_state"].eq("Pending Send").sum())
 
     open_count = int(tickets["ticket_state"].eq("Open").sum())
 
-    resolved_ts = pd.to_datetime(tickets.get("resolved_at", ""), utc=True, errors="coerce")
+    resolved_ts = pd.to_datetime(
+        tickets.get("resolved_at", pd.Series([""] * len(tickets), index=tickets.index)),
+        utc=True,
+        errors="coerce",
+    )
 
     resolved_7d = int((tickets["ticket_state"].eq("Resolved") & resolved_ts.notna() & (resolved_ts >= cutoff_7d)).sum())
 
@@ -6507,7 +6582,7 @@ def sync_tracking_and_tickets(
 
     devices_enriched = devices_df.merge(
 
-        tracking[["key", "first_offline_at", "offline_hours", "ticket_status", "ticket_id"]],
+        tracking[["key", "first_seen_at", "first_offline_at", "offline_hours", "ticket_status", "ticket_id"]],
 
         on="key",
 
@@ -6563,19 +6638,7 @@ def compute_health_state(df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-    if "Error Flags" in df.columns:
-
-        err = clean_text_series(df["Error Flags"])
-
-        has_err = err.ne("")
-
-    else:
-
-        has_err = pd.Series(False, index=df.index)
-
-
-
-    offline = (~df["Connected_bool"]) | failed_status | has_err
+    offline = (~df["Connected_bool"]) | failed_status
 
     offline_but_visible = offline & df["Visible_bool"]
 
@@ -7463,19 +7526,14 @@ def annotate_action_required_ping_status(df_in: pd.DataFrame) -> pd.DataFrame:
     secondary_connected = connected_from_col("Secondary Connection")
     any_connection_connected = primary_connected | secondary_connected
 
-    error_flags_present = clean_text_series(
-        out.get("Error Flags", pd.Series([""] * len(out), index=out.index))
-    ).ne("")
     health_lower = clean_text_series(
         out.get("Health State", out.get("Health", pd.Series([""] * len(out), index=out.index)))
     ).str.lower()
     offline_like = health_lower.str.contains("offline", na=False)
 
     mismatch_mask = pingable_mask & any_connection_present & ~any_connection_connected
-    failed_source_mask = pingable_mask & offline_like & error_flags_present
 
     out.loc[mismatch_mask, "Ping Status"] = "\U0001F7E2 Pingable (server status mismatch)"
-    out.loc[failed_source_mask & ~mismatch_mask, "Ping Status"] = "\U0001F7E2 Pingable (error flags present)"
     return out
 
 
@@ -7507,7 +7565,7 @@ def apply_confirmed_healthy_override(df_in: pd.DataFrame) -> pd.DataFrame:
         out.get("Retention (days)", pd.Series([pd.NA] * len(out), index=out.index)),
         errors="coerce",
     )
-    retention_good = retention_days.gt(20)
+    retention_good = retention_days.ge(20)
 
     healthy_override_mask = pingable & both_servers_connected & retention_good
     if not healthy_override_mask.any():
@@ -8375,13 +8433,11 @@ prioritized_df = compute_priority_table(prioritized_source)
 
 
 
-retention_violations_df = pd.DataFrame()
+retention_scope_df = pd.DataFrame()
 
 if retention_available and {"Retention (days)", "Retention Gap", "Retention OK"}.issubset(prioritized_df.columns):
 
-    retention_violations_df = prioritized_df[~prioritized_df["Retention OK"].fillna(False)].copy()
-
-    retention_violations_df = retention_violations_df.sort_values("Retention Gap", ascending=False)
+    retention_scope_df = prioritized_df.copy()
 
 
 
@@ -11736,26 +11792,212 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
 
 
-def render_retention_tab(retention_subset: pd.DataFrame):
+def render_retention_tab(retention_scope: pd.DataFrame, observed_at_ts: pd.Timestamp):
 
     render_health_section_intro(
         "Retention",
-        f"Review cameras currently below the {RETENTION_POLICY_DAYS}-day retention target within the active filter scope.",
+        f"Review cameras below the {RETENTION_POLICY_DAYS}-day retention target and cameras meeting or exceeding it within the active filter scope.",
     )
 
-    if retention_subset.empty:
+    if retention_scope.empty or "Retention (days)" not in retention_scope.columns:
 
-        st.info("No retention violations in the current filtered scope. That means every visible camera is at or above the current retention threshold.")
+        st.info("Retention data is not available in the current filtered scope.")
 
         return
 
 
 
+    retention_scope = retention_scope.copy()
+    retention_days = pd.to_numeric(
+        retention_scope.get("Retention (days)", pd.Series([pd.NA] * len(retention_scope), index=retention_scope.index)),
+        errors="coerce",
+    )
+    retention_scope["Retention (days)"] = retention_days.round(1)
+    retention_scope["Retention Gap"] = (RETENTION_POLICY_DAYS - retention_days).clip(lower=0).fillna(0).round(1)
+    retention_scope["Retention Surplus"] = (retention_days - RETENTION_POLICY_DAYS).clip(lower=0).fillna(0).round(1)
+    retention_scope["Retention OK"] = retention_days.ge(RETENTION_POLICY_DAYS) & retention_days.notna()
+    first_seen_ts = pd.to_datetime(
+        retention_scope.get("first_seen_at", pd.Series([""] * len(retention_scope), index=retention_scope.index)),
+        utc=True,
+        errors="coerce",
+    )
+    retention_scope["Days Since App First Saw Camera"] = (
+        (observed_at_ts - first_seen_ts).dt.total_seconds() / 86400.0
+    ).clip(lower=0).round(1)
+    retention_scope["Within Grace Window"] = (
+        first_seen_ts.notna()
+        & retention_scope["Days Since App First Saw Camera"].lt(float(RETENTION_POLICY_DAYS))
+    )
+
+    below_target_subset = retention_scope[
+        ~retention_scope["Retention OK"].fillna(False)
+        & ~retention_scope["Within Grace Window"].fillna(False)
+    ].copy()
+    above_target_subset = retention_scope[retention_scope["Retention OK"].fillna(False)].copy()
+    grace_window_subset = retention_scope[
+        ~retention_scope["Retention OK"].fillna(False)
+        & retention_scope["Within Grace Window"].fillna(False)
+    ].copy()
+    zero_video_subset = retention_scope[retention_scope["Retention (days)"].fillna(0).le(0)].copy()
+    below_target_subset = below_target_subset.sort_values(["Retention Gap", "Retention (days)", "Device Name Base"], ascending=[False, True, True])
+    above_target_subset = above_target_subset.sort_values(["Retention Surplus", "Retention (days)", "Device Name Base"], ascending=[False, False, True])
+    grace_window_subset = grace_window_subset.sort_values(["Days Since App First Saw Camera", "Retention (days)", "Device Name Base"], ascending=[True, True, True])
+    zero_video_subset = zero_video_subset.sort_values(["Device Name Base", "Location"], ascending=[True, True])
+
+    retention_gap = pd.to_numeric(
+        below_target_subset.get("Retention Gap", pd.Series([0.0] * len(below_target_subset), index=below_target_subset.index)),
+        errors="coerce",
+    ).fillna(0.0)
+    open_ticket_count = 0
+    if "Ticket Status" in below_target_subset.columns:
+        ticket_status = below_target_subset["Ticket Status"].fillna("").astype(str).str.strip().str.lower()
+        open_ticket_count = int(ticket_status.eq("open").sum())
+    urgent_shortfall_count = int(below_target_subset["Retention (days)"].lt(20).fillna(False).sum())
+    grace_window_count = int(
+        (
+            ~retention_scope["Retention OK"].fillna(False)
+            & retention_scope["Within Grace Window"].fillna(False)
+        ).sum()
+    )
+    worst_gap = float(retention_gap.max()) if not retention_gap.empty else 0.0
+    average_retention = float(retention_days.dropna().mean()) if retention_days.notna().any() else 0.0
+    if "Location" in below_target_subset.columns:
+        top_location_series = below_target_subset["Location"].fillna("").astype(str).str.strip()
+        top_location_series = top_location_series[top_location_series != ""]
+        if not top_location_series.empty:
+            top_location = str(top_location_series.value_counts().index[0])
+            top_location_count = int(top_location_series.value_counts().iloc[0])
+        else:
+            top_location = "Unknown"
+            top_location_count = 0
+    else:
+        top_location = "Unknown"
+        top_location_count = 0
+    best_surplus = float(pd.to_numeric(above_target_subset.get("Retention Surplus", pd.Series([0.0] * len(above_target_subset), index=above_target_subset.index)), errors="coerce").fillna(0).max()) if not above_target_subset.empty else 0.0
+
+    insight_parts = [
+        f"{urgent_shortfall_count:,} camera(s) are below 20 days"
+    ]
+    if grace_window_count > 0:
+        insight_parts.append(f"{grace_window_count:,} new install(s) are still within the grace window")
+    if top_location_count > 0:
+        insight_parts.append(f"largest concentration: {top_location} ({top_location_count:,})")
+    summary_cards = [
+        ("Below Target", f"{len(below_target_subset):,}", "#BE123C", "Cameras under the current retention policy", "Below Target"),
+        ("At / Above Target", f"{len(above_target_subset):,}", "#2F738E", "Cameras meeting or exceeding the retention policy", "At / Above Target"),
+        ("Grace Window", f"{grace_window_count:,}", "#357E9B", "New installs still accumulating retention normally", "Grace Window"),
+        ("Zero Video", f"{len(zero_video_subset):,}", "#7C2D12", "Cameras currently showing no saved video", "Zero Video Saved"),
+        ("Worst Gap", f"{worst_gap:.1f} days", "#B45309", "Largest shortfall from the retention target", "Below Target"),
+        ("Best Surplus", f"{best_surplus:.1f} days", "#0F766E", "Largest retention cushion above the target", "At / Above Target"),
+        ("Avg Retention", f"{average_retention:.1f} days", "#5B4FCF", "Average retained days across the scoped cameras", "At / Above Target"),
+    ]
+    render_html(
+        f"""
+        <div style="margin:0.55rem 0 1rem 0;padding:1rem 1.06rem;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,252,0.96));box-shadow:0 10px 24px rgba(15,23,42,0.06);border:1px solid rgba(148,163,184,0.14);">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.9rem;flex-wrap:wrap;margin-bottom:0.82rem;">
+                <div>
+                    <div style="color:#5B6B78;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Retention Snapshot</div>
+                    <div style="color:#0F172A;font-size:1.08rem;font-weight:850;letter-spacing:-0.03em;margin-top:0.12rem;">Storage pressure in the current scope</div>
+                    <div style="color:#64748B;font-size:0.8rem;font-weight:600;line-height:1.4;margin-top:0.22rem;max-width:42rem;">{" | ".join(html_escape(part) for part in insight_parts)}</div>
+                </div>
+                <div style="padding:0.56rem 0.74rem;border-radius:14px;background:rgba(47,115,142,0.08);color:#2F738E;font-size:0.76rem;font-weight:800;">Target: {RETENTION_POLICY_DAYS} days</div>
+            </div>
+        </div>
+        """
+    )
+
+    st.markdown(
+        """
+        <style>
+        .retention-card-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div {
+            height: 100%;
+        }
+        .retention-card-row-anchor + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
+            min-height: 108px;
+            width: 100%;
+            border-radius: 16px;
+            border: 1px solid rgba(125,146,171,0.18);
+            background: transparent;
+            color: transparent;
+            box-shadow: none;
+            padding: 0;
+        }
+        .retention-card-row-anchor + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover {
+            border-color: rgba(47,115,142,0.28);
+            background: rgba(47,115,142,0.03);
+            box-shadow: none;
+        }
+        .retention-card-overlay {
+            margin-top: -108px;
+            pointer-events: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="retention-card-row-anchor"></div>', unsafe_allow_html=True)
+    metric_card_cols = st.columns(7, gap="medium")
+    for col, (label, value, tone, caption, target_view) in zip(metric_card_cols, summary_cards):
+        with col:
+            if st.button(
+                label,
+                key=f"retention_metric_card_{label.lower().replace(' ', '_').replace('/', '_')}",
+                use_container_width=True,
+            ):
+                st.session_state["retention_sheet_view"] = target_view
+                st.rerun()
+            render_html(
+                f"""
+                <div class="retention-card-overlay">
+                    <div style="padding:0.88rem 0.95rem;border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,0.92), rgba(244,248,252,0.94));border:1px solid rgba(125,146,171,0.18);box-shadow:inset 0 1px 0 rgba(255,255,255,0.55);">
+                        <div style="color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">{label}</div>
+                        <div style="color:{tone};font-size:1.28rem;font-weight:850;line-height:1.05;margin-top:0.32rem;">{value}</div>
+                        <div style="color:#52606D;font-size:0.76rem;font-weight:600;line-height:1.35;margin-top:0.22rem;">{caption}</div>
+                    </div>
+                </div>
+                """
+            )
+
+    retention_view = st.radio(
+        "Retention Sheet",
+        options=["Below Target", "At / Above Target", "Grace Window", "Zero Video Saved"],
+        horizontal=True,
+        key="retention_sheet_view",
+    )
+
+    if retention_view == "Below Target":
+        display_source = below_target_subset
+        if display_source.empty:
+            st.info("No cameras currently fall below the retention target in this filtered scope.")
+            return
+    elif retention_view == "At / Above Target":
+        display_source = above_target_subset
+        if display_source.empty:
+            st.info("No cameras currently meet or exceed the retention target in this filtered scope.")
+            return
+    elif retention_view == "Grace Window":
+        display_source = grace_window_subset
+        if display_source.empty:
+            st.info("No new installs are currently within the retention grace window in this filtered scope.")
+            return
+    else:
+        display_source = zero_video_subset
+        if display_source.empty:
+            st.info("No cameras currently show zero saved video in this filtered scope.")
+            return
+
     preferred_cols_retention = [
 
         "Retention Gap",
 
+        "Retention Surplus",
+
         "Retention (days)",
+
+        "Days Since App First Saw Camera",
+
+        "Within Grace Window",
 
         "Retention OK",
 
@@ -11777,11 +12019,11 @@ def render_retention_tab(retention_subset: pd.DataFrame):
 
     ]
 
-    cols = [c for c in preferred_cols_retention if c in retention_subset.columns]
+    cols = [c for c in preferred_cols_retention if c in display_source.columns]
 
-    cols += [c for c in retention_subset.columns if c not in cols]
+    cols += [c for c in display_source.columns if c not in cols]
 
-    display_df = retention_subset[cols].copy()
+    display_df = display_source[cols].copy()
 
     render_data_editor(
         display_df,
@@ -11789,7 +12031,9 @@ def render_retention_tab(retention_subset: pd.DataFrame):
         preferred_order=preferred_cols_retention,
         default_visible_cols=[
             "Retention Gap",
+            "Retention Surplus",
             "Retention (days)",
+            "Days Since App First Saw Camera",
             "Health",
             "Device Name Base",
             "key",
@@ -12051,8 +12295,7 @@ def render_overview_section() -> None:
         "other": f"Other ({len(df_devices[df_devices['Brand'].isin(['Other', 'Unknown'])]):,})",
     }
 
-    overview_issue_mask = compute_action_required_mask(filtered_devices, use_ping_results=False)
-    overview_issue_subset = filtered_devices.loc[overview_issue_mask].copy()
+    overview_issue_subset = issues_df.copy()
     scoped_keys = set(filtered_devices["key"].astype(str).tolist()) if "key" in filtered_devices.columns else set()
     scoped_open_tickets = tickets_df[
         tickets_df["ticket_state"].eq("Open")
@@ -12103,7 +12346,7 @@ def render_overview_section() -> None:
             {
                 "label": "Needs Attention",
                 "value": f"{len(overview_issue_subset):,}",
-                "note": "Offline, visible-offline, or error-driven",
+                "note": "Matches the current Action Queue",
                 "priority": True,
                 "href": "?overview_nav=action_queue",
                 "status_label": "Needs review",
@@ -12484,8 +12727,6 @@ def render_action_required_tab():
         "Focus on the cameras most likely to need action now: offline devices, error-heavy rows, and cameras with unresolved visibility or ping concerns.",
     )
 
-    st.caption("Prioritized by score: strict offline, not visible, hard error flags, or offline-visible devices that are not confirmed pingable.")
-
     initialize_ping_queue(issues_df)
 
     process_ping_batch(batch_size=2)
@@ -12500,66 +12741,111 @@ def render_action_required_tab():
 
     issues_with_ping = compute_priority_table(issues_with_ping)
 
+    if "Priority Score" in issues_with_ping.columns:
+        issue_scores = pd.to_numeric(issues_with_ping["Priority Score"], errors="coerce").fillna(0)
+        issues_with_ping = issues_with_ping.loc[issue_scores.gt(0)].copy()
+
     preview_df = issues_with_ping.copy()
     if "Priority Score" in preview_df.columns:
         preview_df["Priority Score"] = pd.to_numeric(preview_df["Priority Score"], errors="coerce").fillna(0)
         preview_df = preview_df.sort_values(["Priority Score", "Device Name Base"], ascending=[False, True])
     preview_rows = []
+    critical_count = 0
+    warning_count = 0
+    routine_count = 0
+    no_ticket_count = 0
+    not_pingable_count = 0
+    oldest_outage_hours = 0.0
     for _, row in preview_df.head(6).iterrows():
         score = float(pd.to_numeric(pd.Series([row.get("Priority Score", 0)]), errors="coerce").fillna(0).iloc[0])
         if score >= 80:
             severity_label = "Critical"
-            severity_bg = "rgba(225, 29, 72, 0.10)"
-            severity_fg = "#BE123C"
-            action_label = "Triage"
+            severity_tone = "#BE123C"
+            action_label = "Triage now"
+            critical_count += 1
         elif score >= 45:
             severity_label = "Warning"
-            severity_bg = "rgba(217, 119, 6, 0.12)"
-            severity_fg = "#B45309"
-            action_label = "Monitor"
+            severity_tone = "#B45309"
+            action_label = "Check today"
+            warning_count += 1
         else:
             severity_label = "Routine"
-            severity_bg = "rgba(13, 148, 136, 0.10)"
-            severity_fg = "#0F766E"
+            severity_tone = "#0F766E"
             action_label = "Schedule"
+            routine_count += 1
         issue_name = html_escape(str(row.get("Device Name Base") or row.get("key") or "Unknown item"))
         issue_reason = html_escape(str(row.get("Priority Reason", "Needs review")))
-        issue_eta = html_escape(str(row.get("Offline For (hrs)", row.get("Ping Status", "")) or "Review now"))
+        ping_status = str(row.get("Ping Status", "") or "").strip()
+        ticket_id = str(row.get("Ticket ID", "") or "").strip()
+        offline_hours = float(pd.to_numeric(pd.Series([row.get("Offline For (hrs)", 0)]), errors="coerce").fillna(0).iloc[0])
+        oldest_outage_hours = max(oldest_outage_hours, offline_hours)
+        if not ticket_id:
+            no_ticket_count += 1
+        if ping_status and "not pingable" in ping_status.lower():
+            not_pingable_count += 1
+        meta_bits = []
+        if offline_hours > 0:
+            meta_bits.append(f"{offline_hours:.1f}h offline")
+        if ping_status:
+            meta_bits.append(ping_status)
+        if ticket_id:
+            meta_bits.append(f"Ticket {ticket_id}")
+        else:
+            meta_bits.append("No ticket yet")
         preview_rows.append(
             f"""
-            <tr>
-                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);color:#1E293B;font-weight:600;">{issue_name}<div style="color:#64748B;font-size:0.78rem;font-weight:500;margin-top:0.16rem;">{issue_reason}</div></td>
-                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);"><span style="display:inline-flex;padding:0.24rem 0.56rem;border-radius:999px;background:{severity_bg};color:{severity_fg};font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">{severity_label}</span></td>
-                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);color:#475569;">{issue_eta}</td>
-                <td style="padding:0.9rem 0.75rem;border-top:1px solid rgba(148,163,184,0.16);color:#0F172A;font-weight:700;">{action_label}</td>
-            </tr>
+            <div style="padding:0.78rem 0.9rem;border:1px solid rgba(148,163,184,0.16);border-radius:14px;background:rgba(255,255,255,0.8);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;">
+                    <div style="min-width:0;">
+                        <div style="color:#0F172A;font-size:0.95rem;font-weight:800;line-height:1.25;">{issue_name}</div>
+                        <div style="color:#475569;font-size:0.8rem;font-weight:600;line-height:1.35;margin-top:0.24rem;">{issue_reason}</div>
+                    </div>
+                    <div style="flex:none;padding:0.18rem 0.5rem;border-radius:999px;background:{severity_tone}14;color:{severity_tone};font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">{severity_label}</div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-top:0.55rem;">
+                    <div style="color:#64748B;font-size:0.76rem;font-weight:600;line-height:1.35;">{" | ".join(html_escape(bit) for bit in meta_bits)}</div>
+                    <div style="color:#0F172A;font-size:0.76rem;font-weight:800;white-space:nowrap;">{action_label}</div>
+                </div>
+            </div>
             """
         )
     if preview_rows:
+        top_item_name = html_escape(str(preview_df.iloc[0].get("Device Name Base") or preview_df.iloc[0].get("key") or "Unknown item"))
+        top_item_reason = html_escape(str(preview_df.iloc[0].get("Priority Reason", "Needs review")))
+        summary_cards = [
+            ("Critical", str(critical_count), "#BE123C", "Needs immediate triage"),
+            ("No Ticket", str(no_ticket_count), "#7C3AED", "Still missing a helpdesk record"),
+            ("Not Pingable", str(not_pingable_count), "#B45309", "Offline and not confirmed reachable"),
+            ("Oldest Outage", f"{oldest_outage_hours:.1f}h" if oldest_outage_hours > 0 else "0h", "#0F766E", "Longest unresolved offline window"),
+        ]
+        summary_markup = "".join(
+            f"""
+            <div style="padding:0.82rem 0.9rem;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,250,252,0.92));border:1px solid rgba(148,163,184,0.16);">
+                <div style="color:#64748B;font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">{label}</div>
+                <div style="color:{tone};font-size:1.2rem;font-weight:850;line-height:1.1;margin-top:0.28rem;">{value}</div>
+                <div style="color:#475569;font-size:0.74rem;font-weight:600;line-height:1.35;margin-top:0.18rem;">{caption}</div>
+            </div>
+            """
+            for label, value, tone, caption in summary_cards
+        )
         render_html(
-            """
-            <div style="margin:0.65rem 0 1rem 0;padding:1.05rem 1.08rem;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96));box-shadow:0 10px 24px rgba(15,23,42,0.06);">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;">
+            f"""
+            <div style="margin:0.65rem 0 1rem 0;padding:1rem 1.05rem;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96));box-shadow:0 10px 24px rgba(15,23,42,0.06);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.9rem;flex-wrap:wrap;margin-bottom:0.85rem;">
                     <div>
-                        <div style="color:#475569;font-size:0.74rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Action Queue &amp; System Events</div>
-                        <div style="color:#1E293B;font-size:1rem;font-weight:750;letter-spacing:-0.02em;margin-top:0.2rem;">Operational triage preview</div>
+                        <div style="color:#475569;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Action Queue</div>
+                        <div style="color:#0F172A;font-size:1.08rem;font-weight:850;letter-spacing:-0.03em;margin-top:0.12rem;">What needs attention first</div>
+                        <div style="color:#64748B;font-size:0.76rem;font-weight:600;line-height:1.4;margin-top:0.22rem;max-width:40rem;">Prioritized by score: strict offline, not visible, hard error flags, or offline-visible devices that are not confirmed pingable.</div>
+                        <div style="color:#64748B;font-size:0.8rem;font-weight:600;line-height:1.4;margin-top:0.2rem;max-width:34rem;">Top queue item: <span style="color:#0F172A;font-weight:800;">{top_item_name}</span> because {top_item_reason.lower()}.</div>
                     </div>
+                    <div style="padding:0.55rem 0.72rem;border-radius:14px;background:rgba(15,23,42,0.04);color:#334155;font-size:0.76rem;font-weight:700;">{len(preview_rows)} highest-priority items shown</div>
                 </div>
-                <table style="width:100%;border-collapse:collapse;">
-                    <thead>
-                        <tr>
-                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Source Item</th>
-                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Severity</th>
-                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Signal</th>
-                            <th style="text-align:left;padding:0 0.75rem 0.5rem 0.75rem;color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            """
-            + "".join(preview_rows)
-            + """
-                    </tbody>
-                </table>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.7rem;margin-bottom:0.8rem;">
+                    {summary_markup}
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0.7rem;">
+                    {"".join(preview_rows)}
+                </div>
             </div>
             """
         )
@@ -12665,7 +12951,7 @@ if selected_workspace == "Health Status":
         render_trends_tab(filtered_devices, transitions_df, observed_at)
     elif selected_area == "Retention":
         if retention_available:
-            render_retention_tab(retention_violations_df)
+            render_retention_tab(retention_scope_df, observed_at)
         else:
             st.info("Retention data is not available in the current loaded export.")
 elif selected_workspace == "Ticket Related":
