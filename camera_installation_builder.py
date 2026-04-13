@@ -1,4 +1,5 @@
 import hashlib
+import html
 import io
 import json
 import os
@@ -11,6 +12,20 @@ from typing import Any
 import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st  # type: ignore[import-untyped]
 import streamlit.components.v1 as components  # type: ignore[import-untyped]
+try:
+    from st_aggrid import (  # type: ignore[import-untyped]
+        AgGrid,
+        ColumnsAutoSizeMode,
+        DataReturnMode,
+        GridOptionsBuilder,
+        GridUpdateMode,
+    )
+except Exception:
+    AgGrid = None  # type: ignore[assignment]
+    ColumnsAutoSizeMode = None  # type: ignore[assignment]
+    DataReturnMode = None  # type: ignore[assignment]
+    GridOptionsBuilder = None  # type: ignore[assignment]
+    GridUpdateMode = None  # type: ignore[assignment]
 
 
 # Replace the workbook later by uploading a newer .xlsx on the builder tab or
@@ -675,15 +690,15 @@ def _render_copy_button(text: str, key: str, label: str = "Copy BOM") -> None:
     message_id = f"{key}_copy_message"
     components.html(
         f"""
-        <div style="display:flex; align-items:center; gap:12px; margin:0.2rem 0 0.8rem 0;">
+        <div style="display:flex; align-items:center; gap:12px; margin:0; min-height:38px;">
             <button
-                style="background:#5d8667; color:#f7fbf7; border:none; border-radius:8px; padding:0.55rem 0.9rem; font-weight:700; cursor:pointer;"
+                style="background:#5d8667; color:#f7fbf7; border:none; border-radius:8px; padding:0.55rem 0.9rem; min-height:38px; font-weight:700; cursor:pointer;"
                 onclick='navigator.clipboard.writeText({payload}).then(function(){{document.getElementById("{message_id}").innerText="Copied to clipboard";}}).catch(function(){{document.getElementById("{message_id}").innerText="Clipboard copy failed";}});'
             >{label}</button>
             <span id="{message_id}" style="font-family:sans-serif; font-size:0.9rem; color:#d8dfeb;"></span>
         </div>
         """,
-        height=60,
+        height=42,
     )
 
 
@@ -706,6 +721,161 @@ def _format_export_text(camera_summary: dict[str, str], bom_df: pd.DataFrame, no
         output_lines.extend(["", "Notes:"])
         output_lines.extend([f"- {note}" for note in notes])
     return "\n".join(output_lines).strip()
+
+
+def _build_editable_bom_state(bom_df: pd.DataFrame) -> pd.DataFrame:
+    editable_df = bom_df.copy()
+    if editable_df.empty:
+        return editable_df
+    editable_df["Include"] = True
+    editable_df["Required Qty"] = pd.to_numeric(editable_df.get("Required Qty", 1), errors="coerce").fillna(1).astype(int)
+    editable_df["Line Key"] = editable_df.apply(
+        lambda row: "|".join(
+            [
+                _clean(row.get("Part Number", "")),
+                _clean(row.get("Description", "")),
+                _clean(row.get("Required/Optional", "")),
+                _clean(row.get("Part Type", "")),
+            ]
+        ),
+        axis=1,
+    )
+    return editable_df
+
+
+def _quantity_dropdown_values(df: pd.DataFrame) -> list[int]:
+    if df.empty or "Required Qty" not in df.columns:
+        return list(range(0, 26))
+    qty_series = pd.to_numeric(df["Required Qty"], errors="coerce").fillna(0)
+    max_qty = int(max(qty_series.max(), 1))
+    upper_bound = max(25, min(100, max_qty * 4))
+    return list(range(0, upper_bound + 1))
+
+
+def _render_bom_grid(df: pd.DataFrame, key: str, editable: bool, height: int = 192) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    if all(
+        dependency is not None
+        for dependency in (AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, ColumnsAutoSizeMode)
+    ):
+        grid_df = df.copy()
+        gb = GridOptionsBuilder.from_dataframe(grid_df)
+        gb.configure_default_column(
+            editable=False,
+            filter=False,
+            sortable=True,
+            resizable=True,
+            suppressMenu=True,
+            wrapHeaderText=True,
+            autoHeaderHeight=True,
+        )
+        gb.configure_grid_options(
+            rowHeight=36,
+            headerHeight=42,
+            suppressMovableColumns=True,
+            ensureDomOrder=True,
+            stopEditingWhenCellsLoseFocus=True,
+            tooltipShowDelay=0,
+            tooltipMouseTrack=True,
+            enableCellTextSelection=True,
+        )
+        qty_dropdown_values = _quantity_dropdown_values(grid_df)
+        for column in grid_df.columns:
+            col_kwargs: dict[str, Any] = {
+                "header_name": "Qty" if column == "Required Qty" else str(column),
+                "editable": False,
+                "minWidth": 92,
+                "tooltipField": str(column),
+            }
+            if column == "Include":
+                col_kwargs.update({
+                    "editable": editable,
+                    "cellRenderer": "agCheckboxCellRenderer",
+                    "cellEditor": "agCheckboxCellEditor",
+                    "width": 88,
+                    "minWidth": 78,
+                    "maxWidth": 96,
+                })
+            elif column == "Required Qty":
+                col_kwargs.update({
+                    "editable": editable,
+                    "type": ["numericColumn"],
+                    "cellEditor": "agSelectCellEditor" if editable else None,
+                    "cellEditorParams": {"values": qty_dropdown_values} if editable else None,
+                    "width": 110,
+                    "minWidth": 96,
+                    "maxWidth": 120,
+                    "singleClickEdit": editable,
+                })
+            elif column == "Part Type":
+                col_kwargs.update({"width": 120})
+            elif column == "Manufacturer":
+                col_kwargs.update({"width": 120})
+            elif column == "Part Number":
+                col_kwargs.update({"width": 170})
+            elif column == "Description":
+                col_kwargs.update({"width": 240})
+            elif column == "Notes":
+                col_kwargs.update({"width": 260, "wrapText": True, "autoHeight": True})
+            gb.configure_column(str(column), **col_kwargs)
+
+        grid_response = AgGrid(
+            grid_df,
+            gridOptions=gb.build(),
+            height=height,
+            theme="streamlit",
+            key=key,
+            data_return_mode=DataReturnMode.AS_INPUT,
+            update_mode=GridUpdateMode.VALUE_CHANGED if editable else GridUpdateMode.NO_UPDATE,
+            allow_unsafe_jscode=False,
+            columns_auto_size_mode=ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW,
+            fit_columns_on_grid_load=True,
+            custom_css={
+                ".ag-root-wrapper": {
+                    "border": "1px solid rgba(101, 122, 132, 0.18)",
+                    "border-radius": "18px",
+                    "overflow": "hidden",
+                    "box-shadow": "0 14px 28px rgba(15, 23, 42, 0.08)",
+                },
+                ".ag-header": {
+                    "background": "linear-gradient(180deg, #657A84, #357E9B)",
+                    "border-bottom": "1px solid rgba(255, 255, 255, 0.10)",
+                },
+                ".ag-header-cell": {
+                    "background": "linear-gradient(180deg, #657A84, #357E9B)",
+                    "border-right": "1px solid rgba(255, 255, 255, 0.10)",
+                },
+                ".ag-header-cell-text": {
+                    "color": "#f8fafc",
+                    "font-weight": "700",
+                    "font-size": "14px",
+                },
+                ".ag-header-icon": {
+                    "color": "#f8fafc",
+                },
+                ".ag-row": {
+                    "background-color": "#FBFCFC",
+                    "color": "#40484D",
+                    "border-bottom": "1px solid rgba(101, 122, 132, 0.18)",
+                },
+                ".ag-row-even": {
+                    "background-color": "#F3F6F8",
+                },
+                ".ag-row-hover": {
+                    "background-color": "#E8F1F5 !important",
+                },
+                ".ag-cell": {
+                    "line-height": "32px",
+                    "font-size": "13px",
+                },
+            },
+        )
+        return grid_response.data if hasattr(grid_response, "data") else grid_df
+    if editable:
+        return st.data_editor(df, hide_index=True, use_container_width=True, key=key)
+    st.dataframe(df, hide_index=True, use_container_width=True)
+    return df.copy()
 
 
 def reset_builder_state() -> None:
@@ -748,8 +918,6 @@ def _sync_multi_select_state(key: str, options: list[str]) -> list[str]:
 
 
 def render_builder() -> None:
-    st.markdown("## Camera Installation Builder")
-    st.caption("Build workbook-backed Avigilon installation packages in four steps: choose a workbook, choose a camera, choose an install scenario, then review the generated BOM.")
     components.html(
         """
         <style>
@@ -761,23 +929,23 @@ def render_builder() -> None:
             --cib-heading: #31414a;
         }
         .cib-shell .cib-step-title {
-            margin: 0.16rem 0 0.12rem 0 !important;
+            margin: 0.02rem 0 0.03rem 0 !important;
             color: var(--cib-heading);
-            font-size: 0.92rem;
+            font-size: 0.8rem;
             font-weight: 760;
-            line-height: 1.1;
+            line-height: 1;
         }
         .cib-shell .cib-step-copy {
-            margin: 0 0 0.18rem 0 !important;
+            margin: 0 0 0.04rem 0 !important;
             color: var(--cib-copy);
-            font-size: 0.75rem;
-            line-height: 1.22;
+            font-size: 0.67rem;
+            line-height: 1.02;
         }
         .cib-shell .cib-muted-caption {
-            margin: 0.05rem 0 0.08rem 0 !important;
+            margin: 0.01rem 0 0.03rem 0 !important;
             color: #6b7e88;
-            font-size: 0.71rem;
-            line-height: 1.18;
+            font-size: 0.65rem;
+            line-height: 1;
         }
         .cib-shell h3,
         .cib-shell h4,
@@ -789,6 +957,19 @@ def render_builder() -> None:
         }
         .cib-shell div[data-testid="stAlert"] {
             border: 1px solid rgba(84, 110, 122, 0.18);
+        }
+        .cib-shell div[data-testid="stExpander"] {
+            margin: 0.04rem 0 0.08rem 0 !important;
+        }
+        .cib-shell div[data-testid="stExpander"] details summary {
+            min-height: 1.4rem !important;
+            padding-top: 0.02rem !important;
+            padding-bottom: 0.02rem !important;
+        }
+        .cib-shell div[data-testid="stExpander"] details summary p {
+            font-size: 0.7rem !important;
+            line-height: 1 !important;
+            margin: 0 !important;
         }
         .cib-shell div[data-testid="stTextInput"] input,
         .cib-shell div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
@@ -844,9 +1025,63 @@ def render_builder() -> None:
         .cib-shell div[data-testid="stMarkdownContainer"] p {
             color: var(--cib-copy);
         }
-        .cib-shell div[data-testid="stDataFrame"] {
+        .cib-shell div[data-testid="stDataFrame"],
+        .cib-shell div[data-testid="stDataEditor"] {
             border: 1px solid rgba(84, 110, 122, 0.16);
             background: rgba(255, 255, 255, 0.98);
+            --gdg-bg-header: #357E9B;
+            --gdg-bg-header-has-focus: #357E9B;
+            --gdg-header-bg: #357E9B;
+            --gdg-header-font-style: 700 14px;
+            --gdg-header-text-color: #f8fafc;
+            --gdg-text-header: #f8fafc;
+            --gdg-text-dark: #31414a;
+            --gdg-border-color: rgba(101, 122, 132, 0.18);
+            --gdg-horizontal-border-color: rgba(101, 122, 132, 0.14);
+            --gdg-vertical-border-color: rgba(101, 122, 132, 0.14);
+            --gdg-accent-color: #357E9B;
+        }
+        .cib-shell div[data-testid="stDataFrame"] > div,
+        .cib-shell div[data-testid="stDataEditor"] > div {
+            border: 1px solid rgba(101, 122, 132, 0.18);
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+        }
+        .cib-shell div[data-testid="stDataFrame"] th,
+        .cib-shell div[data-testid="stDataFrame"] [role="columnheader"],
+        .cib-shell div[data-testid="stDataEditor"] th,
+        .cib-shell div[data-testid="stDataEditor"] [role="columnheader"] {
+            background: linear-gradient(180deg, #657A84, #357E9B) !important;
+            color: #f8fafc !important;
+            font-weight: 700 !important;
+            font-size: 14px !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+        }
+        .cib-shell div[data-testid="stDataFrame"] th *,
+        .cib-shell div[data-testid="stDataFrame"] [role="columnheader"] *,
+        .cib-shell div[data-testid="stDataEditor"] th *,
+        .cib-shell div[data-testid="stDataEditor"] [role="columnheader"] * {
+            color: #f8fafc !important;
+            fill: #f8fafc !important;
+        }
+        .cib-shell div[data-testid="stDataEditor"] canvas {
+            border-top-left-radius: 18px !important;
+            border-top-right-radius: 18px !important;
+        }
+        .st-key-cib_required_parts_editor [data-testid="stDataEditor"] [role="columnheader"],
+        .st-key-cib_optional_parts_editor [data-testid="stDataEditor"] [role="columnheader"],
+        .st-key-cib_final_bom_editor [data-testid="stDataEditor"] [role="columnheader"] {
+            background: linear-gradient(180deg, #657A84, #357E9B) !important;
+            color: #f8fafc !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+        }
+        .st-key-cib_required_parts_editor [data-testid="stDataEditor"] [role="columnheader"] *,
+        .st-key-cib_optional_parts_editor [data-testid="stDataEditor"] [role="columnheader"] *,
+        .st-key-cib_final_bom_editor [data-testid="stDataEditor"] [role="columnheader"] * {
+            color: #f8fafc !important;
+            fill: #f8fafc !important;
+            font-weight: 700 !important;
         }
         .cib-shell div[data-testid="stExpander"] {
             background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(239,244,247,0.98));
@@ -867,7 +1102,7 @@ def render_builder() -> None:
         .st-key-cib_quantity,
         .st-key-cib_required_only,
         .st-key-cib_debug_mode {
-            margin-bottom: 0.04rem !important;
+            margin-bottom: 0 !important;
         }
         .st-key-cib_workbook_upload label[data-testid="stWidgetLabel"],
         .st-key-cib_workbook_path label[data-testid="stWidgetLabel"],
@@ -878,7 +1113,7 @@ def render_builder() -> None:
         .st-key-cib_environment label[data-testid="stWidgetLabel"],
         .st-key-cib_tags label[data-testid="stWidgetLabel"],
         .st-key-cib_quantity label[data-testid="stWidgetLabel"] {
-            margin-bottom: 0.02rem !important;
+            margin-bottom: 0 !important;
         }
         .st-key-cib_workbook_upload label[data-testid="stWidgetLabel"] p,
         .st-key-cib_workbook_path label[data-testid="stWidgetLabel"] p,
@@ -889,8 +1124,8 @@ def render_builder() -> None:
         .st-key-cib_environment label[data-testid="stWidgetLabel"] p,
         .st-key-cib_tags label[data-testid="stWidgetLabel"] p,
         .st-key-cib_quantity label[data-testid="stWidgetLabel"] p {
-            font-size: 0.74rem !important;
-            line-height: 1.05 !important;
+            font-size: 0.66rem !important;
+            line-height: 1 !important;
             margin: 0 !important;
         }
         .st-key-cib_workbook_path input,
@@ -901,48 +1136,48 @@ def render_builder() -> None:
         .st-key-cib_environment [data-baseweb="select"] > div,
         .st-key-cib_tags [data-baseweb="select"] > div,
         .st-key-cib_quantity input {
-            min-height: 1.95rem !important;
-            height: 1.95rem !important;
-            font-size: 0.81rem !important;
+            min-height: 1.56rem !important;
+            height: 1.56rem !important;
+            font-size: 0.72rem !important;
         }
         .st-key-cib_workbook_upload [data-testid="stFileUploader"] {
-            margin-bottom: 0.08rem !important;
+            margin-bottom: 0 !important;
         }
         .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzone"] {
-            padding-top: 0.32rem !important;
-            padding-bottom: 0.32rem !important;
-            min-height: 3.55rem !important;
+            padding-top: 0.12rem !important;
+            padding-bottom: 0.12rem !important;
+            min-height: 2.2rem !important;
         }
         .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzoneInstructions"] span,
         .st-key-cib_workbook_upload [data-testid="stFileUploaderDropzoneInstructions"] small {
-            font-size: 0.74rem !important;
-            line-height: 1.1 !important;
+            font-size: 0.64rem !important;
+            line-height: 1.02 !important;
         }
         .st-key-cib_workbook_upload button {
-            min-height: 1.85rem !important;
-            height: 1.85rem !important;
+            min-height: 1.5rem !important;
+            height: 1.5rem !important;
         }
         .st-key-cib_required_only,
         .st-key-cib_debug_mode {
-            padding-top: 0.05rem !important;
-            margin-top: -0.02rem !important;
+            padding-top: 0 !important;
+            margin-top: -0.08rem !important;
         }
         .st-key-cib_required_only label,
         .st-key-cib_debug_mode label {
-            min-height: 1.2rem !important;
+            min-height: 0.88rem !important;
         }
         .st-key-cib_required_only p,
         .st-key-cib_debug_mode p {
-            font-size: 0.78rem !important;
+            font-size: 0.68rem !important;
             margin: 0 !important;
-            line-height: 1.12 !important;
+            line-height: 1.02 !important;
         }
         .st-key-cib_build button,
         .st-key-cib_clear button {
-            min-height: 2rem !important;
-            height: 2rem !important;
-            padding-top: 0.18rem !important;
-            padding-bottom: 0.18rem !important;
+            min-height: 1.56rem !important;
+            height: 1.56rem !important;
+            padding-top: 0.04rem !important;
+            padding-bottom: 0.04rem !important;
         }
         </style>
         """,
@@ -959,19 +1194,36 @@ def render_builder() -> None:
     st.session_state.setdefault("cib_required_only", False)
     st.session_state.setdefault("cib_debug_mode", False)
 
-    left_col, right_col = st.columns([1.06, 1.34], gap="small")
-
-    with left_col:
-        st.markdown('<div class="cib-step-title">Step 1 · Workbook</div>', unsafe_allow_html=True)
-        st.markdown('<div class="cib-step-copy">Choose the ordering workbook that powers the builder. Repo-local <code>data/</code> is the best long-term location on this machine.</div>', unsafe_allow_html=True)
+    with st.sidebar:
+        st.markdown("**Builder Workbook**")
         uploaded_workbook = st.file_uploader(
             "Upload workbook",
             type=["xlsx"],
             key="cib_workbook_upload",
             help="Optional: upload a newer Avigilon workbook without changing code.",
         )
-        workbook_path = st.text_input("Workbook path", key="cib_workbook_path")
-        workbook_bytes, workbook_label, source_messages = _load_workbook_source(uploaded_workbook, workbook_path)
+        workbook_path = st.text_input("Workbook file", key="cib_workbook_path")
+
+    workbook_bytes, workbook_label, source_messages = _load_workbook_source(uploaded_workbook, workbook_path)
+
+    uploaded_workbook_current = st.session_state.get("cib_workbook_upload")
+    workbook_path_current = _clean(st.session_state.get("cib_workbook_path", _default_workbook_path()))
+    active_workbook_label = _clean(getattr(uploaded_workbook_current, "name", "")) or os.path.basename(workbook_path_current) or "Not selected"
+
+    with st.sidebar:
+        st.caption(f"Active workbook: {active_workbook_label}")
+
+    header_left_col, header_right_col = st.columns([0.78, 1.72], gap="medium")
+    with header_left_col:
+        st.markdown("## Camera Installation Builder")
+        st.caption("Choose a workbook, camera, and scenario, then review the BOM.")
+    with header_right_col:
+        st.markdown("### Generated package")
+        st.caption("Review the workbook-backed parts list, then copy or export the package details.")
+
+    left_col, right_col = st.columns([0.78, 1.72], gap="medium")
+
+    with left_col:
         for message in source_messages:
             st.error(message)
 
@@ -988,8 +1240,6 @@ def render_builder() -> None:
                 st.session_state["cib_result_context"] = None
                 st.session_state["cib_last_workbook_hash"] = catalog.get("workbook_hash")
 
-            if catalog.get("workbook_name"):
-                st.markdown(f'<div class="cib-muted-caption">Loaded workbook: {catalog["workbook_name"]}</div>', unsafe_allow_html=True)
             for warning in catalog.get("warnings", []):
                 st.warning(warning)
             for error in catalog.get("errors", []):
@@ -999,7 +1249,7 @@ def render_builder() -> None:
             bundles_df = catalog.get("bundles_df", pd.DataFrame())
 
             if not models_df.empty and not bundles_df.empty:
-                st.markdown('<div class="cib-step-title">Step 2 · Camera</div>', unsafe_allow_html=True)
+                st.markdown('<div class="cib-step-title">Step 1 - Camera</div>', unsafe_allow_html=True)
                 families = sorted(family for family in models_df["family"].dropna().astype(str).unique().tolist() if family)
                 selected_family = _sync_single_select_state("cib_family", families)
                 family_col, model_col = st.columns(2, gap="small")
@@ -1016,7 +1266,7 @@ def render_builder() -> None:
                 with model_col:
                     selected_model = st.selectbox("Camera model", options=[""] + model_options, key="cib_model")
 
-                st.markdown('<div class="cib-step-title">Step 3 · Installation Scenario</div>', unsafe_allow_html=True)
+                st.markdown('<div class="cib-step-title">Step 2 - Scenario</div>', unsafe_allow_html=True)
                 scenarios_scope = filter_bundle_candidates(catalog, family=selected_family, model_number=selected_model)
                 scenario_options = (
                     sorted(scenarios_scope["scenario"].dropna().astype(str).unique().tolist())
@@ -1081,19 +1331,20 @@ def render_builder() -> None:
                 with tags_col:
                     st.multiselect("Optional filters", options=tag_options, key="cib_tags")
 
-                st.markdown('<div class="cib-step-title">Step 4 · Output Options</div>', unsafe_allow_html=True)
+                st.markdown('<div class="cib-step-title">Step 3 - Output</div>', unsafe_allow_html=True)
                 output_col, option_col = st.columns(2, gap="small")
                 with output_col:
                     st.number_input("Camera quantity", min_value=1, step=1, key="cib_quantity")
-                    st.checkbox("Show only required parts in results", key="cib_required_only")
                 with option_col:
                     st.checkbox("Debug / provenance mode", key="cib_debug_mode")
+                st.checkbox("Show only required parts in results", key="cib_required_only")
 
                 build_col, clear_col = st.columns(2)
                 with build_col:
                     if st.button("Build Installation Package", key="cib_build", use_container_width=True):
                         requested_model = _clean(st.session_state.get("cib_model", ""))
                         requested_scenario = _clean(st.session_state.get("cib_scenario", ""))
+                        requested_quantity = int(st.session_state.get("cib_quantity", 1) or 1)
                         if not requested_model or not requested_scenario:
                             st.session_state["cib_result"] = {
                                 "status": "error",
@@ -1105,28 +1356,59 @@ def render_builder() -> None:
                                 catalog,
                                 requested_model,
                                 requested_scenario,
-                                int(st.session_state.get("cib_quantity", 1) or 1),
+                                requested_quantity,
                             )
                             st.session_state["cib_result_context"] = {
                                 "workbook_name": catalog.get("workbook_name", ""),
                                 "workbook_hash": catalog.get("workbook_hash", ""),
                                 "sheet_roles": catalog.get("sheet_roles", {}),
+                                "model_number": requested_model,
+                                "scenario": requested_scenario,
+                                "quantity": requested_quantity,
                             }
                 with clear_col:
                     if st.button("Clear", key="cib_clear", use_container_width=True):
                         st.session_state["cib_reset_pending"] = True
                         st.rerun()
 
-                st.caption(
-                    "Detected workbook sheets: "
-                    + ", ".join(f"{role} -> {sheet_name or 'not found'}" for role, sheet_name in catalog.get("sheet_roles", {}).items())
+                current_model = _clean(st.session_state.get("cib_model", ""))
+                current_scenario = _clean(st.session_state.get("cib_scenario", ""))
+                current_quantity = int(st.session_state.get("cib_quantity", 1) or 1)
+                current_result_context = st.session_state.get("cib_result_context") or {}
+                if (
+                    current_model
+                    and current_scenario
+                    and (
+                        current_result_context.get("workbook_hash") != catalog.get("workbook_hash")
+                        or _clean(current_result_context.get("model_number", "")) != current_model
+                        or _clean(current_result_context.get("scenario", "")) != current_scenario
+                        or int(current_result_context.get("quantity", 1) or 1) != current_quantity
+                    )
+                ):
+                    st.session_state["cib_result"] = build_installation_package(
+                        catalog,
+                        current_model,
+                        current_scenario,
+                        current_quantity,
+                    )
+                    st.session_state["cib_result_context"] = {
+                        "workbook_name": catalog.get("workbook_name", ""),
+                        "workbook_hash": catalog.get("workbook_hash", ""),
+                        "sheet_roles": catalog.get("sheet_roles", {}),
+                        "model_number": current_model,
+                        "scenario": current_scenario,
+                        "quantity": current_quantity,
+                    }
+
+                detected_count = sum(1 for _, sheet_name in catalog.get("sheet_roles", {}).items() if sheet_name)
+                st.markdown(
+                    f'<div class="cib-muted-caption">Sheets detected: {detected_count}/{len(catalog.get("sheet_roles", {}))}</div>',
+                    unsafe_allow_html=True,
                 )
             else:
                 st.info("The workbook loaded, but the required camera model or mounting bundle sheets were not detected yet.")
 
     with right_col:
-        st.markdown("### Generated package")
-        st.caption("Review the workbook-backed parts list, then copy or export the package details.")
         result = st.session_state.get("cib_result")
         result_context = st.session_state.get("cib_result_context") or {}
         if not result:
@@ -1146,58 +1428,125 @@ def render_builder() -> None:
         camera_summary = result.get("camera_summary", {}) or {}
         if camera_summary:
             st.caption("Package summary")
-            info_col_1, info_col_2 = st.columns(2)
+            info_col_1, info_col_2 = st.columns(2, gap="medium")
+            summary_block_style = (
+                "padding:0.1rem 0 0.2rem 0;"
+                "color:#31414a;"
+            )
+            label_style = "color:#31414a;font-size:0.72rem;font-weight:800;line-height:1.1;margin-bottom:0.34rem;"
+            item_style = "color:#3f505a;font-size:0.76rem;line-height:1.25;margin:0 0 0.16rem 0;"
             with info_col_1:
-                st.markdown("##### Camera Selection")
-                st.write(f"Make: {_clean(camera_summary.get('make', '')) or 'Avigilon'}")
-                st.write(f"Family: {_clean(camera_summary.get('family', ''))}")
-                st.write(f"Model: {_clean(camera_summary.get('model_number', ''))}")
-                st.write(f"Description: {_clean(camera_summary.get('description', ''))}")
+                st.markdown(
+                    f"""
+                    <div style="{summary_block_style}">
+                        <div style="{label_style}">Camera Selection</div>
+                        <div style="{item_style}"><strong>Make:</strong> {_clean(camera_summary.get('make', '')) or 'Avigilon'}</div>
+                        <div style="{item_style}"><strong>Family:</strong> {_clean(camera_summary.get('family', ''))}</div>
+                        <div style="{item_style}"><strong>Model:</strong> {_clean(camera_summary.get('model_number', ''))}</div>
+                        <div style="{item_style}"><strong>Description:</strong> {_clean(camera_summary.get('description', ''))}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
             with info_col_2:
-                st.markdown("##### Installation Context")
-                st.write(f"Scenario: {_clean(camera_summary.get('scenario', ''))}")
-                st.write(f"Environment: {_clean(camera_summary.get('environment', ''))}")
-                st.write(f"Base Mount: {_clean(camera_summary.get('base_mount', ''))}")
-                st.write(f"Camera Qty: {int(st.session_state.get('cib_quantity', 1) or 1)}")
-            st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"""
+                    <div style="{summary_block_style}">
+                        <div style="{label_style}">Installation Context</div>
+                        <div style="{item_style}"><strong>Scenario:</strong> {_clean(camera_summary.get('scenario', ''))}</div>
+                        <div style="{item_style}"><strong>Environment:</strong> {_clean(camera_summary.get('environment', ''))}</div>
+                        <div style="{item_style}"><strong>Base Mount:</strong> {_clean(camera_summary.get('base_mount', ''))}</div>
+                        <div style="{item_style}"><strong>Camera Qty:</strong> {int(st.session_state.get('cib_quantity', 1) or 1)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            st.markdown("<div style='height:0.12rem'></div>", unsafe_allow_html=True)
 
         bom_df = result.get("bom_df", pd.DataFrame())
         if isinstance(bom_df, pd.DataFrame) and not bom_df.empty:
-            display_df = bom_df.copy()
+            editable_bom_df = _build_editable_bom_state(bom_df)
+            editor_state_key = f"cib_editable_bom::{_clean(result_context.get('workbook_hash', ''))}::{_clean(camera_summary.get('model_number', ''))}::{_clean(camera_summary.get('scenario', ''))}::{int(st.session_state.get('cib_quantity', 1) or 1)}"
+            editor_cache_key = f"{editor_state_key}::cache"
+            prior_editor_df = st.session_state.get(editor_cache_key)
+            if isinstance(prior_editor_df, pd.DataFrame) and not prior_editor_df.empty and "Line Key" in prior_editor_df.columns:
+                editable_bom_df = editable_bom_df.merge(
+                    prior_editor_df[["Line Key", "Include", "Required Qty"]].drop_duplicates(subset=["Line Key"], keep="last"),
+                    on="Line Key",
+                    how="left",
+                    suffixes=("", "_saved"),
+                )
+                if "Include_saved" in editable_bom_df.columns:
+                    editable_bom_df["Include"] = editable_bom_df["Include_saved"].fillna(editable_bom_df["Include"]).astype(bool)
+                if "Required Qty_saved" in editable_bom_df.columns:
+                    editable_bom_df["Required Qty"] = (
+                        pd.to_numeric(editable_bom_df["Required Qty_saved"], errors="coerce")
+                        .fillna(pd.to_numeric(editable_bom_df["Required Qty"], errors="coerce").fillna(1))
+                        .clip(lower=0)
+                        .astype(int)
+                    )
+                editable_bom_df = editable_bom_df.drop(columns=[c for c in ["Include_saved", "Required Qty_saved"] if c in editable_bom_df.columns])
+
+            required_edit_df = editable_bom_df[editable_bom_df["Required/Optional"].eq("Required")].copy()
+            optional_edit_df = editable_bom_df[editable_bom_df["Required/Optional"].eq("Optional")].copy()
+
+            edited_required_df = pd.DataFrame()
+            edited_optional_df = pd.DataFrame()
+            if not required_edit_df.empty:
+                st.markdown("##### Required Parts")
+                edited_required_df = _render_bom_grid(
+                    required_edit_df[["Include", "Part Type", "Manufacturer", "Part Number", "Description", "Required Qty", "Required/Optional", "Line Key"]].copy(),
+                    key=f"cib_required_parts_editor::{editor_state_key}",
+                    editable=True,
+                    height=min(240, 74 + len(required_edit_df) * 36),
+                )
+            if not optional_edit_df.empty:
+                st.markdown("##### Optional Parts")
+                edited_optional_df = _render_bom_grid(
+                    optional_edit_df[["Include", "Part Type", "Manufacturer", "Part Number", "Description", "Required Qty", "Required/Optional", "Line Key"]].copy(),
+                    key=f"cib_optional_parts_editor::{editor_state_key}",
+                    editable=True,
+                    height=min(220, 74 + len(optional_edit_df) * 36),
+                )
+            edited_frames = [frame for frame in [edited_required_df, edited_optional_df] if isinstance(frame, pd.DataFrame) and not frame.empty]
+            edited_bom_df = pd.concat(edited_frames, ignore_index=True) if edited_frames else editable_bom_df.copy()
+            st.session_state[editor_cache_key] = edited_bom_df.copy()
+            display_df = edited_bom_df.copy()
+            if "Include" in display_df.columns:
+                display_df = display_df[display_df["Include"].fillna(False)].copy()
+            if "Required Qty" in display_df.columns:
+                display_df = display_df[pd.to_numeric(display_df["Required Qty"], errors="coerce").fillna(0).gt(0)].copy()
             if st.session_state.get("cib_required_only", False):
                 display_df = display_df[display_df["Required/Optional"].eq("Required")].reset_index(drop=True)
-
             st.caption("Primary output")
             st.markdown("##### Final Bill Of Materials")
-            st.dataframe(
-                display_df,
-                hide_index=True,
-                use_container_width=True,
-                column_config={"Required Qty": st.column_config.NumberColumn("Required Qty", step=1, format="%d")},
+            _render_bom_grid(
+                display_df.drop(columns=[c for c in ["Include", "Line Key", "Notes"] if c in display_df.columns]),
+                key=f"cib_final_bom_editor::{editor_state_key}",
+                editable=False,
+                height=min(320, 74 + len(display_df) * 36),
             )
-            st.markdown("<div style='height:0.35rem'></div>", unsafe_allow_html=True)
-            required_df = result.get("required_df", pd.DataFrame())
-            optional_df = result.get("optional_df", pd.DataFrame())
-            details_col, exports_col = st.columns([0.68, 0.32], gap="large")
-            with details_col:
-                if isinstance(required_df, pd.DataFrame) and not required_df.empty:
-                    st.markdown("##### Required Parts")
-                    st.dataframe(required_df, hide_index=True, use_container_width=True)
-                if isinstance(optional_df, pd.DataFrame) and not optional_df.empty:
-                    st.markdown("##### Optional Parts")
-                    st.dataframe(optional_df, hide_index=True, use_container_width=True)
 
-            export_text = _format_export_text(camera_summary, bom_df, result.get("notes", []))
-            with exports_col:
-                st.caption("Export")
+            export_text = _format_export_text(
+                camera_summary,
+                display_df.drop(columns=[c for c in ["Include", "Line Key"] if c in display_df.columns]),
+                result.get("notes", []),
+            )
+            st.caption("Export")
+            export_controls_col, download_csv_col, download_txt_col = st.columns([0.26, 0.37, 0.37], gap="small")
+            with export_controls_col:
                 _render_copy_button(export_text, "cib")
+            with download_csv_col:
+                st.markdown("<div style='height:0.08rem'></div>", unsafe_allow_html=True)
                 st.download_button(
                     "Download BOM CSV",
-                    data=bom_df.to_csv(index=False).encode("utf-8"),
+                    data=display_df.drop(columns=[c for c in ["Include", "Line Key"] if c in display_df.columns]).to_csv(index=False).encode("utf-8"),
                     file_name=f"camera_installation_bom_{_clean(camera_summary.get('model_number', 'package'))}.csv",
                     mime="text/csv",
                     use_container_width=True,
                 )
+            with download_txt_col:
+                st.markdown("<div style='height:0.08rem'></div>", unsafe_allow_html=True)
                 st.download_button(
                     "Download Notes TXT",
                     data=export_text.encode("utf-8"),
@@ -1228,3 +1577,5 @@ def render_builder() -> None:
                 else:
                     st.info("No debug match rows were recorded for this result.")
     st.markdown("</div>", unsafe_allow_html=True)
+
+

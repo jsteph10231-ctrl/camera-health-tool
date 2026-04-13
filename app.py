@@ -2534,6 +2534,16 @@ def load_tracking_state(path: str) -> pd.DataFrame:
 
         "active",
 
+        "last_ip_address",
+
+        "last_primary_connection",
+
+        "last_secondary_connection",
+
+        "last_servers",
+
+        "last_snapshot_json",
+
     ]
 
     if os.path.exists(path):
@@ -2612,6 +2622,16 @@ def save_tracking_state(path: str, tracking_df: pd.DataFrame) -> None:
 
         "active",
 
+        "last_ip_address",
+
+        "last_primary_connection",
+
+        "last_secondary_connection",
+
+        "last_servers",
+
+        "last_snapshot_json",
+
     ]
 
     out = tracking_df.copy()
@@ -2635,7 +2655,31 @@ def save_tracking_state(path: str, tracking_df: pd.DataFrame) -> None:
     out.to_csv(path, index=False)
 
 
+def serialize_tracking_snapshot(row: pd.Series) -> str:
 
+    snapshot: dict[str, str] = {}
+    for key, value in row.items():
+        if pd.isna(value):
+            snapshot[str(key)] = ""
+        else:
+            snapshot[str(key)] = str(value)
+    try:
+        return json.dumps(snapshot, sort_keys=True)
+    except Exception:
+        return "{}"
+
+
+def parse_tracking_snapshot(snapshot_json: str) -> dict[str, str]:
+
+    if not snapshot_json:
+        return {}
+    try:
+        parsed = json.loads(str(snapshot_json))
+    except Exception:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return {str(k): "" if pd.isna(v) else str(v) for k, v in parsed.items()}
 
 
 def load_tickets(path: str) -> pd.DataFrame:
@@ -2674,6 +2718,8 @@ def load_tickets(path: str) -> pd.DataFrame:
 
         "resolution",
 
+        "asset_status",
+
         "resolution_notes",
 
         "last_error",
@@ -2702,7 +2748,7 @@ def load_tickets(path: str) -> pd.DataFrame:
 
     df = df[cols].copy()
 
-    for col in ["ticket_key", "key", "device_name", "location", "health_state", "ticket_state", "ticket_id", "email_to", "email_subject", "resolution", "resolution_notes", "last_error"]:
+    for col in ["ticket_key", "key", "device_name", "location", "health_state", "ticket_state", "ticket_id", "email_to", "email_subject", "resolution", "asset_status", "resolution_notes", "last_error"]:
 
         df[col] = df[col].fillna("").astype(str)
 
@@ -2746,7 +2792,179 @@ def save_tickets(path: str, tickets_df: pd.DataFrame) -> None:
     out.to_csv(path, index=False)
 
 
+def build_historical_missing_devices(
+    tracking_df: pd.DataFrame,
+    notes_df: pd.DataFrame,
+    tickets_df: pd.DataFrame,
+    current_devices_df: pd.DataFrame,
+    observed_at: pd.Timestamp,
+) -> pd.DataFrame:
 
+    if tracking_df.empty:
+        return pd.DataFrame()
+
+    def normalize_mac_value(value: Any) -> str:
+        text = str(value or "").strip().lower()
+        if not text:
+            return ""
+        normalized = re.sub(r"[^0-9a-f]", "", text)
+        return normalized if len(normalized) >= 12 else ""
+
+    current_mac_set: set[str] = set()
+    if not current_devices_df.empty and "MAC Address" in current_devices_df.columns:
+        current_mac_set = {
+            normalize_mac_value(value)
+            for value in current_devices_df["MAC Address"].tolist()
+            if normalize_mac_value(value)
+        }
+    current_view = current_devices_df.copy()
+    if current_view.empty:
+        current_view = pd.DataFrame(columns=["Device Name Base", "Location", "MAC Address", "IP Address", "Model"])
+    for col in ["Device Name Base", "Location", "MAC Address", "IP Address", "Model"]:
+        if col not in current_view.columns:
+            current_view[col] = ""
+    current_view["normalized_name"] = current_view["Device Name Base"].fillna("").astype(str).str.strip().str.lower()
+    current_view["normalized_location"] = current_view["Location"].fillna("").astype(str).str.strip().str.lower()
+    current_view["normalized_mac"] = current_view["MAC Address"].map(normalize_mac_value)
+
+    tracking_view = tracking_df.copy()
+    historical_mac = tracking_view.get("last_snapshot_json", pd.Series([""] * len(tracking_view), index=tracking_view.index)).apply(
+        lambda snapshot: normalize_mac_value(parse_tracking_snapshot(str(snapshot or "")).get("MAC Address", ""))
+    )
+    historical_mac = historical_mac.where(historical_mac.ne(""), tracking_view["key"].astype(str).map(normalize_mac_value))
+    tracking_view["Historical MAC"] = historical_mac
+
+    missing_df = tracking_view[tracking_view["Historical MAC"].ne("") & ~tracking_view["Historical MAC"].isin(current_mac_set)].copy()
+    if missing_df.empty:
+        return missing_df
+
+    notes_view = notes_df.copy()
+    for col in ["key", "disposition", "notes"]:
+        if col not in notes_view.columns:
+            notes_view[col] = ""
+
+    missing_df["key"] = missing_df["key"].astype(str)
+    missing_df = missing_df.merge(
+        notes_view[["key", "disposition", "notes"]].drop_duplicates(subset=["key"], keep="last"),
+        on="key",
+        how="left",
+        suffixes=("", "_notes"),
+    )
+    if "disposition_notes" in missing_df.columns:
+        missing_df["disposition"] = missing_df["disposition_notes"].combine_first(missing_df["disposition"])
+        missing_df = missing_df.drop(columns=["disposition_notes"])
+    if "notes_notes" in missing_df.columns:
+        missing_df["notes"] = missing_df["notes_notes"].combine_first(missing_df["notes"])
+        missing_df = missing_df.drop(columns=["notes_notes"])
+
+    latest_tickets = tickets_df.copy()
+    if latest_tickets.empty:
+        missing_df["ticket_state"] = ""
+        missing_df["ticket_id"] = ""
+        missing_df["asset_status"] = ""
+        missing_df["resolution_notes"] = ""
+    else:
+        latest_tickets["created_at_sort"] = pd.to_datetime(latest_tickets.get("created_at", ""), utc=True, errors="coerce")
+        latest_tickets = latest_tickets.sort_values(["created_at_sort", "ticket_key"]).drop_duplicates(subset=["key"], keep="last")
+        ticket_cols = [c for c in ["key", "ticket_state", "ticket_id", "asset_status", "resolution_notes"] if c in latest_tickets.columns]
+        missing_df = missing_df.merge(latest_tickets[ticket_cols], on="key", how="left", suffixes=("", "_ticket"))
+
+    last_seen_ts = pd.to_datetime(missing_df.get("last_seen_at", ""), utc=True, errors="coerce")
+    missing_df["Missing Since"] = last_seen_ts.dt.strftime("%Y-%m-%d %H:%M UTC").fillna("")
+    missing_df["Missing For (hrs)"] = ((observed_at - last_seen_ts).dt.total_seconds() / 3600.0).clip(lower=0).fillna(0.0).round(1)
+    missing_df["Device Name Base"] = missing_df.get("device_name", "").fillna("").astype(str)
+    missing_df["Location"] = missing_df.get("location", "").fillna("").astype(str)
+    missing_df["Health"] = "Missing from current Site Health Report"
+    missing_df["normalized_name"] = missing_df["Device Name Base"].fillna("").astype(str).str.strip().str.lower()
+    missing_df["normalized_location"] = missing_df["Location"].fillna("").astype(str).str.strip().str.lower()
+    replacement_labels: list[str] = []
+    replacement_details: list[str] = []
+    for _, missing_row in missing_df.iterrows():
+        name_key = str(missing_row.get("normalized_name", "") or "").strip()
+        location_key = str(missing_row.get("normalized_location", "") or "").strip()
+        historical_mac_value = str(missing_row.get("Historical MAC", "") or "").strip()
+        probable_matches = current_view[current_view["normalized_name"].eq(name_key)].copy()
+        if location_key:
+            location_matches = probable_matches[probable_matches["normalized_location"].eq(location_key)].copy()
+            if not location_matches.empty:
+                probable_matches = location_matches
+        probable_matches = probable_matches[probable_matches["normalized_mac"].ne(historical_mac_value)].copy()
+        if probable_matches.empty:
+            replacement_labels.append("")
+            replacement_details.append("")
+            continue
+        candidate = probable_matches.iloc[0]
+        candidate_mac = str(candidate.get("MAC Address", "") or "").strip()
+        candidate_ip = str(candidate.get("IP Address", "") or "").strip()
+        candidate_model = str(candidate.get("Model", "") or "").strip()
+        detail_bits = [bit for bit in [candidate_mac, candidate_ip, candidate_model] if bit]
+        replacement_labels.append("Probable Replacement")
+        replacement_details.append(" | ".join(detail_bits) if detail_bits else "Same name/location appears in current report with a different MAC")
+    missing_df["Replacement Match"] = replacement_labels
+    missing_df["Replacement Details"] = replacement_details
+    if "asset_status" in missing_df.columns:
+        missing_df["disposition"] = missing_df["asset_status"].combine_first(missing_df["disposition"])
+    missing_df["disposition"] = missing_df.get("disposition", "").fillna("").astype(str)
+    missing_df["notes"] = missing_df.get("notes", missing_df.get("resolution_notes", "")).fillna("").astype(str)
+    missing_df["Ticket Status"] = missing_df.get("ticket_state", "").fillna("").astype(str)
+    missing_df["Ticket ID"] = missing_df.get("ticket_id", "").fillna("").astype(str)
+    missing_df["Historical MAC"] = missing_df["Historical MAC"].fillna("").astype(str)
+    missing_df["Last IP Address"] = missing_df.get("last_ip_address", "").fillna("").astype(str)
+    missing_df["Primary Connection"] = missing_df.get("last_primary_connection", "").fillna("").astype(str)
+    missing_df["Secondary Connection"] = missing_df.get("last_secondary_connection", "").fillna("").astype(str)
+    missing_df["Servers"] = missing_df.get("last_servers", "").fillna("").astype(str)
+    missing_df = missing_df.drop(columns=[c for c in ["normalized_name", "normalized_location"] if c in missing_df.columns])
+    missing_df = missing_df.sort_values(["Missing For (hrs)", "Device Name Base"], ascending=[False, True])
+    return missing_df
+
+
+def upsert_missing_device_tickets(
+    missing_rows: pd.DataFrame,
+    tickets_df: pd.DataFrame,
+    observed_at: pd.Timestamp,
+) -> tuple[pd.DataFrame, list[str]]:
+
+    tickets_out = tickets_df.copy()
+    focus_ticket_keys: list[str] = []
+    created_at_iso = format_timestamp(observed_at)
+
+    for _, row in missing_rows.iterrows():
+        key = str(row.get("key", "") or "").strip()
+        if not key:
+            continue
+        ticket_key = f"missing::{key}"
+        focus_ticket_keys.append(ticket_key)
+        existing_mask = tickets_out["ticket_key"].astype(str).eq(ticket_key)
+        payload = {
+            "ticket_key": ticket_key,
+            "key": key,
+            "device_name": row.get("Device Name Base", row.get("device_name", "")),
+            "location": row.get("Location", row.get("location", "")),
+            "health_state": "Missing from Site Health Report",
+            "offline_since": row.get("Missing Since", ""),
+            "offline_hours_at_creation": float(pd.to_numeric(pd.Series([row.get("Missing For (hrs)", 0.0)]), errors="coerce").fillna(0.0).iloc[0]),
+            "ticket_state": "Open",
+            "ticket_id": str(row.get("Ticket ID", "") or "").strip(),
+            "email_to": "",
+            "email_subject": f"Historically missing from Site Health Report: {row.get('Device Name Base', key)}",
+            "created_at": created_at_iso,
+            "email_sent_at": "",
+            "resolved_at": "",
+            "resolution": "",
+            "asset_status": str(row.get("disposition", "") or "").strip(),
+            "resolution_notes": str(row.get("notes", "") or "").strip(),
+            "last_error": "",
+        }
+        if existing_mask.any():
+            existing_idx = tickets_out.index[existing_mask][-1]
+            for field, value in payload.items():
+                if field == "created_at":
+                    continue
+                tickets_out.loc[existing_idx, field] = value
+        else:
+            tickets_out = pd.concat([tickets_out, pd.DataFrame([payload])], ignore_index=True)
+
+    return tickets_out, focus_ticket_keys
 
 
 def load_state_transitions(path: str) -> pd.DataFrame:
@@ -6457,6 +6675,16 @@ def sync_tracking_and_tickets(
             "ticket_id": ticket_id,
 
             "active": True,
+
+            "last_ip_address": row.get("IP Address", ""),
+
+            "last_primary_connection": row.get("Primary Connection", ""),
+
+            "last_secondary_connection": row.get("Secondary Connection", ""),
+
+            "last_servers": row.get("Servers", ""),
+
+            "last_snapshot_json": serialize_tracking_snapshot(row),
 
         })
 
@@ -10952,7 +11180,7 @@ def render_data_editor(
 
 
 
-    disposition_options = ["", "Investigating", "Vendor", "ITS/Network", "Construction", "Offline/Expected", "Replaced", "Closed"]
+    disposition_options = ["", "Investigating", "Vendor", "ITS/Network", "Construction", "Offline/Expected", "Replacement Pending", "RMA Pending", "Removed", "Replaced", "Closed"]
 
     preferred_width_px = {
         "Priority Score": 90,
@@ -11681,6 +11909,11 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
     st.caption("Work the active ticket queue here. Update status, TDX IDs, and resolution details, then save the queue when you are done.")
 
+    focus_ticket_keys = [str(k) for k in st.session_state.get("ticket_focus_keys", []) if str(k).strip()]
+    focus_tracking_map = {}
+    if "tracking_df" in globals() and isinstance(tracking_df, pd.DataFrame) and not tracking_df.empty:
+        focus_tracking_map = tracking_df.set_index("key").to_dict(orient="index")
+
     if ticket_subset.empty:
 
         st.markdown(
@@ -11708,13 +11941,16 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
         "ticket_key", "ticket_state", "ticket_id", "device_name", "location",
 
-        "offline_since", "offline_hours_at_creation", "email_to", "created_at",
+        "offline_since", "offline_hours_at_creation", "asset_status", "email_to", "created_at",
 
         "email_sent_at", "resolution", "resolution_notes", "last_error",
 
     ]
 
     ticket_view = ticket_subset[cols].copy()
+    if focus_ticket_keys:
+        ticket_view["_focus_rank"] = (~ticket_subset["ticket_key"].astype(str).isin(focus_ticket_keys)).astype(int).values
+        ticket_view = ticket_view.sort_values(["_focus_rank", "created_at", "device_name"], ascending=[True, False, True]).drop(columns=["_focus_rank"])
     extra_ticket_cols = [
         c for c in ["offline_since", "email_to", "created_at", "email_sent_at", "last_error"] if c in ticket_view.columns
     ]
@@ -11727,12 +11963,36 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
     )
     default_ticket_cols = [
         c for c in [
-            "ticket_state", "ticket_id", "device_name", "location", "offline_hours_at_creation", "resolution", "resolution_notes"
+            "ticket_state", "asset_status", "ticket_id", "device_name", "location", "offline_hours_at_creation", "resolution", "resolution_notes"
         ] if c in ticket_view.columns
     ]
     display_ticket_cols = default_ticket_cols + [c for c in selected_extra_cols if c not in default_ticket_cols]
 
     st.caption("Default queue view stays focused on the fields you are most likely to update during active ticket work.")
+
+    if focus_ticket_keys:
+        focused_subset = ticket_subset[ticket_subset["ticket_key"].astype(str).isin(focus_ticket_keys)].copy()
+        if not focused_subset.empty:
+            st.caption(f"Focused from Action Queue: {len(focused_subset):,} historically missing device(s)")
+            for _, focused_row in focused_subset.iterrows():
+                key = str(focused_row.get("key", "") or "").strip()
+                tracking_row = focus_tracking_map.get(key, {})
+                snapshot = parse_tracking_snapshot(str(tracking_row.get("last_snapshot_json", "") or ""))
+                label = str(focused_row.get("device_name", key) or key)
+                with st.expander(f"{label} details", expanded=False):
+                    summary_lines = [
+                        f"Ticket: {str(focused_row.get('ticket_id', '') or '').strip() or 'Not assigned'}",
+                        f"Asset status: {str(focused_row.get('asset_status', '') or '').strip() or 'Not set'}",
+                        f"Last seen in report: {str(tracking_row.get('last_seen_at', '') or '').strip() or 'Unknown'}",
+                        f"Last health state: {str(tracking_row.get('current_health_state', '') or '').strip() or 'Unknown'}",
+                    ]
+                    st.markdown("\n".join(f"- {line}" for line in summary_lines))
+                    if snapshot:
+                        snapshot_df = pd.DataFrame(
+                            [{"Field": field, "Value": value} for field, value in snapshot.items() if str(value).strip()]
+                        )
+                        if not snapshot_df.empty:
+                            st.dataframe(snapshot_df, width="stretch", height=min(420, 38 + len(snapshot_df) * 28), hide_index=True)
 
     edited = st.data_editor(
 
@@ -11744,11 +12004,13 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
         hide_index=True,
 
-        disabled=[c for c in display_ticket_cols if c not in ["ticket_state", "ticket_id", "resolution", "resolution_notes"]],
+        disabled=[c for c in display_ticket_cols if c not in ["ticket_state", "asset_status", "ticket_id", "resolution", "resolution_notes"]],
 
         column_config={
 
             "ticket_state": st.column_config.SelectboxColumn("State", options=["Pending Send", "Open", "Acknowledged", "Suppressed", "Resolved"]),
+
+            "asset_status": st.column_config.SelectboxColumn("Asset Status", options=["", "Removed", "Replacement Pending", "RMA Pending"], width="medium"),
 
             "ticket_id": st.column_config.TextColumn("TDX Ticket", width="medium"),
 
@@ -11796,7 +12058,7 @@ def render_retention_tab(retention_scope: pd.DataFrame, observed_at_ts: pd.Times
 
     render_health_section_intro(
         "Retention",
-        f"Review cameras below the {RETENTION_POLICY_DAYS}-day retention target and cameras meeting or exceeding it within the active filter scope.",
+        f"Review currently online cameras below the {RETENTION_POLICY_DAYS}-day retention target and cameras meeting or exceeding it within the active filter scope.",
     )
 
     if retention_scope.empty or "Retention (days)" not in retention_scope.columns:
@@ -11808,6 +12070,21 @@ def render_retention_tab(retention_scope: pd.DataFrame, observed_at_ts: pd.Times
 
 
     retention_scope = retention_scope.copy()
+    health_state_series = retention_scope.get(
+        "Health State",
+        retention_scope.get("Health", pd.Series([""] * len(retention_scope), index=retention_scope.index)),
+    )
+    health_state_text = health_state_series.fillna("").astype(str).str.strip().str.lower()
+    online_retention_mask = health_state_text.eq("online") | health_state_text.str.contains("online", na=False)
+    excluded_offline_count = int((~online_retention_mask).sum())
+    retention_scope = retention_scope.loc[online_retention_mask].copy()
+    if retention_scope.empty:
+        if excluded_offline_count > 0:
+            st.info("No currently online cameras in this filtered scope have retention data to review. Offline cameras are tracked on the Action Queue instead.")
+        else:
+            st.info("Retention data is not available in the current filtered scope.")
+        return
+
     retention_days = pd.to_numeric(
         retention_scope.get("Retention (days)", pd.Series([pd.NA] * len(retention_scope), index=retention_scope.index)),
         errors="coerce",
@@ -11878,6 +12155,8 @@ def render_retention_tab(retention_scope: pd.DataFrame, observed_at_ts: pd.Times
     insight_parts = [
         f"{urgent_shortfall_count:,} camera(s) are below 20 days"
     ]
+    if excluded_offline_count > 0:
+        insight_parts.append(f"{excluded_offline_count:,} offline camera(s) were excluded from retention review")
     if grace_window_count > 0:
         insight_parts.append(f"{grace_window_count:,} new install(s) are still within the grace window")
     if top_location_count > 0:
@@ -11891,6 +12170,17 @@ def render_retention_tab(retention_scope: pd.DataFrame, observed_at_ts: pd.Times
         ("Best Surplus", f"{best_surplus:.1f} days", "#0F766E", "Largest retention cushion above the target", "At / Above Target"),
         ("Avg Retention", f"{average_retention:.1f} days", "#5B4FCF", "Average retained days across the scoped cameras", "At / Above Target"),
     ]
+    summary_markup = "".join(
+        f"""
+        <a href="?overview_nav=retention&retention_sheet={target_view.replace(' ', '%20')}"
+           style="display:block;padding:0.88rem 0.95rem;border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,0.92), rgba(244,248,252,0.94));border:1px solid rgba(125,146,171,0.18);box-shadow:inset 0 1px 0 rgba(255,255,255,0.55);text-decoration:none;">
+            <div style="color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">{label}</div>
+            <div style="color:{tone};font-size:1.28rem;font-weight:850;line-height:1.05;margin-top:0.32rem;">{value}</div>
+            <div style="color:#52606D;font-size:0.76rem;font-weight:600;line-height:1.35;margin-top:0.22rem;">{caption}</div>
+        </a>
+        """
+        for label, value, tone, caption, target_view in summary_cards
+    )
     render_html(
         f"""
         <div style="margin:0.55rem 0 1rem 0;padding:1rem 1.06rem;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,252,0.96));box-shadow:0 10px 24px rgba(15,23,42,0.06);border:1px solid rgba(148,163,184,0.14);">
@@ -11902,62 +12192,12 @@ def render_retention_tab(retention_scope: pd.DataFrame, observed_at_ts: pd.Times
                 </div>
                 <div style="padding:0.56rem 0.74rem;border-radius:14px;background:rgba(47,115,142,0.08);color:#2F738E;font-size:0.76rem;font-weight:800;">Target: {RETENTION_POLICY_DAYS} days</div>
             </div>
+            <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0.72rem;">
+                {summary_markup}
+            </div>
         </div>
         """
     )
-
-    st.markdown(
-        """
-        <style>
-        .retention-card-row-anchor + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div {
-            height: 100%;
-        }
-        .retention-card-row-anchor + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
-            min-height: 108px;
-            width: 100%;
-            border-radius: 16px;
-            border: 1px solid rgba(125,146,171,0.18);
-            background: transparent;
-            color: transparent;
-            box-shadow: none;
-            padding: 0;
-        }
-        .retention-card-row-anchor + div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover {
-            border-color: rgba(47,115,142,0.28);
-            background: rgba(47,115,142,0.03);
-            box-shadow: none;
-        }
-        .retention-card-overlay {
-            margin-top: -108px;
-            pointer-events: none;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown('<div class="retention-card-row-anchor"></div>', unsafe_allow_html=True)
-    metric_card_cols = st.columns(7, gap="medium")
-    for col, (label, value, tone, caption, target_view) in zip(metric_card_cols, summary_cards):
-        with col:
-            if st.button(
-                label,
-                key=f"retention_metric_card_{label.lower().replace(' ', '_').replace('/', '_')}",
-                use_container_width=True,
-            ):
-                st.session_state["retention_sheet_view"] = target_view
-                st.rerun()
-            render_html(
-                f"""
-                <div class="retention-card-overlay">
-                    <div style="padding:0.88rem 0.95rem;border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,0.92), rgba(244,248,252,0.94));border:1px solid rgba(125,146,171,0.18);box-shadow:inset 0 1px 0 rgba(255,255,255,0.55);">
-                        <div style="color:#64748B;font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">{label}</div>
-                        <div style="color:{tone};font-size:1.28rem;font-weight:850;line-height:1.05;margin-top:0.32rem;">{value}</div>
-                        <div style="color:#52606D;font-size:0.76rem;font-weight:600;line-height:1.35;margin-top:0.22rem;">{caption}</div>
-                    </div>
-                </div>
-                """
-            )
 
     retention_view = st.radio(
         "Retention Sheet",
@@ -12937,6 +13177,111 @@ def render_action_required_tab():
     st.caption("Create help tickets or acknowledge pending items from this filtered action queue.")
 
     render_action_required_ticket_queue(pending_issue_tickets_df)
+
+    historical_missing_df = build_historical_missing_devices(tracking_df, notes_df, tickets_df, filtered_devices, observed_at)
+    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+    st.markdown("###### Historically Missing From Current Report")
+    st.caption("These cameras existed in prior Site Health uploads but do not appear in the current report. Track Removed, Replacement Pending, or RMA Pending here without mixing them into the live outage queue.")
+
+    if historical_missing_df.empty:
+        st.info("No historically tracked cameras are missing from the current Site Health Report in this scope.")
+        return
+
+    historical_editor_df = historical_missing_df.copy()
+    historical_editor_df["Select"] = False
+    historical_display_cols = [
+        "Select",
+        "Device Name Base",
+        "Location",
+        "Health",
+        "Replacement Match",
+        "Replacement Details",
+        "Missing Since",
+        "Missing For (hrs)",
+        "Ticket Status",
+        "Ticket ID",
+        "disposition",
+        "notes",
+        "Last IP Address",
+        "Primary Connection",
+        "Secondary Connection",
+        "Servers",
+        "key",
+    ]
+    historical_display_cols = [col for col in historical_display_cols if col in historical_editor_df.columns]
+    historical_edited = st.data_editor(
+        historical_editor_df[historical_display_cols],
+        width="stretch",
+        height=280,
+        hide_index=True,
+        disabled=[col for col in historical_display_cols if col not in ["Select", "disposition", "notes"]],
+        column_config={
+            "Select": st.column_config.CheckboxColumn("Select", width="small"),
+            "Device Name Base": st.column_config.TextColumn("Camera", width="large"),
+            "Location": st.column_config.TextColumn("Location", width="medium"),
+            "Health": st.column_config.TextColumn("State", width="medium"),
+            "Replacement Match": st.column_config.TextColumn("Replacement", width="medium"),
+            "Replacement Details": st.column_config.TextColumn("Replacement Details", width="large"),
+            "Missing Since": st.column_config.TextColumn("Last Seen In Report", width="medium"),
+            "Missing For (hrs)": st.column_config.NumberColumn("Missing Hrs", format="%.1f", width="small"),
+            "Ticket Status": st.column_config.TextColumn("Ticket Status", width="small"),
+            "Ticket ID": st.column_config.TextColumn("TDX Ticket", width="small"),
+            "disposition": st.column_config.SelectboxColumn("Asset Status", options=["", "Removed", "Replacement Pending", "RMA Pending"], width="medium"),
+            "notes": st.column_config.TextColumn("Notes", width="large"),
+            "Last IP Address": st.column_config.TextColumn("Last IP", width="small"),
+            "Primary Connection": st.column_config.TextColumn("Primary", width="medium"),
+            "Secondary Connection": st.column_config.TextColumn("Secondary", width="medium"),
+            "Servers": st.column_config.TextColumn("Servers", width="large"),
+            "key": st.column_config.TextColumn("Key", width="medium"),
+        },
+        key="historical_missing_queue",
+    )
+
+    historical_selected = historical_edited.loc[historical_edited["Select"].fillna(False), "key"].astype(str).tolist() if "Select" in historical_edited.columns else []
+    selected_historical_rows = historical_missing_df[historical_missing_df["key"].astype(str).isin(historical_selected)].copy()
+    notes_save_source = historical_edited.copy()
+    notes_save_source["key"] = notes_save_source["key"].astype(str)
+
+    save_missing_col, open_missing_col = st.columns([0.28, 0.72])
+    with save_missing_col:
+        if st.button("Save Missing Device Status", key="save_missing_device_status", use_container_width=True):
+            save_notes_from_editor(notes_save_source)
+    with open_missing_col:
+        open_disabled = len(historical_selected) == 0
+        if st.button(f"Open Selected In Ticket Dashboard ({len(historical_selected)})", key="open_missing_in_ticket_dashboard", use_container_width=True, disabled=open_disabled):
+            save_notes_from_editor(notes_save_source)
+            refreshed_missing_df = build_historical_missing_devices(tracking_df, load_notes(NOTES_PATH), tickets_df, filtered_devices, observed_at)
+            selected_for_tickets = refreshed_missing_df[refreshed_missing_df["key"].astype(str).isin(historical_selected)].copy()
+            updated_tickets, focus_ticket_keys = upsert_missing_device_tickets(selected_for_tickets, tickets_df, observed_at)
+            save_tickets(TICKETS_PATH, updated_tickets)
+            st.session_state["ticket_focus_keys"] = focus_ticket_keys
+            st.session_state["app_workspace"] = "Ticket Related"
+            st.session_state["app_area_ticket"] = "Open Tickets"
+            st.rerun()
+
+    if historical_selected:
+        details_source = historical_missing_df[historical_missing_df["key"].astype(str).isin(historical_selected)].copy()
+        st.caption("Last known device details for the selected historical item(s)")
+        for _, details_row in details_source.iterrows():
+            device_label = str(details_row.get("Device Name Base", details_row.get("key", "Unknown item")))
+            snapshot = parse_tracking_snapshot(str(details_row.get("last_snapshot_json", "") or ""))
+            with st.expander(device_label, expanded=len(historical_selected) == 1):
+                summary_bits = [
+                    f"Asset status: {str(details_row.get('disposition', '') or '').strip() or 'Not set'}",
+                    f"Ticket: {str(details_row.get('Ticket ID', '') or '').strip() or 'Not assigned'}",
+                    f"Last seen in report: {str(details_row.get('Missing Since', '') or '').strip() or 'Unknown'}",
+                    f"Last health state: {str(details_row.get('current_health_state', '') or '').strip() or 'Unknown'}",
+                ]
+                replacement_detail = str(details_row.get("Replacement Details", "") or "").strip()
+                if replacement_detail:
+                    summary_bits.append(f"Probable replacement present now: {replacement_detail}")
+                st.markdown("\n".join(f"- {bit}" for bit in summary_bits))
+                if snapshot:
+                    snapshot_df = pd.DataFrame(
+                        [{"Field": field, "Value": value} for field, value in snapshot.items() if str(value).strip()]
+                    )
+                    if not snapshot_df.empty:
+                        st.dataframe(snapshot_df, width="stretch", height=min(420, 38 + len(snapshot_df) * 28), hide_index=True)
 
 
 
