@@ -33,6 +33,21 @@ The app expects these project files to exist in the repo:
 - `data/state_transitions.csv`
 - `data/server_roles.csv`
 
+## Supabase shared storage
+
+The app can sync its editable/history CSV data through Supabase so another computer can use the same notes, tickets, device tracking, transitions, and server-role mapping.
+
+1. In Supabase, open the SQL editor and run `supabase_schema.sql`.
+2. Add Streamlit secrets:
+
+```toml
+[supabase]
+url = "https://your-project.supabase.co"
+key = "your-anon-or-service-role-key"
+```
+
+The app still writes local CSV files as a fallback/cache. When Supabase secrets and the `app_datasets` table are available, loads prefer Supabase and saves update Supabase.
+
 ## Optional features
 
 - Tesseract OCR is optional for screenshot/image text extraction.

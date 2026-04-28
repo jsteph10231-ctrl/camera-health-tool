@@ -17,6 +17,7 @@ import smtplib
 import subprocess
 
 import platform
+import requests
 
 import ipaddress
 
@@ -1742,6 +1743,8 @@ TRANSITIONS_PATH = os.path.join("data", "state_transitions.csv")
 
 SERVER_ROLE_MAP_PATH = os.path.join("data", "server_roles.csv")
 
+SUPABASE_DATASET_TABLE = "app_datasets"
+
 DEFAULT_SERVER_ROLE_ASSIGNMENTS = {
     **{f"avigilon-camAI-client{i}.lsu.edu": "Primary" for i in range(1, 16)},
     **{f"avigilon-camAI-client{i}.lsu.edu": "Secondary" for i in range(16, 21)},
@@ -1760,6 +1763,177 @@ RETENTION_POLICY_DAYS = 20
 # Helpers
 
 # -----------------------------
+
+def normalize_supabase_project_url(url: str) -> str:
+
+    cleaned = str(url or "").strip().rstrip("/")
+    for suffix in ("/rest/v1", "/rest/v1/"):
+        if cleaned.endswith(suffix.rstrip("/")):
+            cleaned = cleaned[: -len(suffix.rstrip("/"))]
+            break
+    return cleaned
+
+
+
+def get_supabase_secret_value(*names: str) -> str:
+
+    try:
+        supabase_secrets = st.secrets.get("supabase", {})
+    except Exception:
+        supabase_secrets = {}
+
+    for name in names:
+        try:
+            value = supabase_secrets.get(name, "")
+        except Exception:
+            value = ""
+        if value:
+            return str(value).strip()
+    return ""
+
+
+
+def get_supabase_config() -> tuple[str, str, str]:
+
+    project_url = normalize_supabase_project_url(get_supabase_secret_value("url", "project_url"))
+    key = get_supabase_secret_value("key", "anon_key", "service_role_key")
+    table_name = get_supabase_secret_value("table") or SUPABASE_DATASET_TABLE
+    return project_url, key, table_name
+
+
+
+def get_supabase_headers(key: str, prefer: str = "") -> dict[str, str]:
+
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    if prefer:
+        headers["Prefer"] = prefer
+    return headers
+
+
+
+def get_supabase_rest_url(project_url: str, table_name: str) -> str:
+
+    return f"{project_url}/rest/v1/{urllib.parse.quote(table_name, safe='')}"
+
+
+
+def supabase_enabled() -> bool:
+
+    project_url, key, _ = get_supabase_config()
+    return bool(project_url and key)
+
+
+
+def dataset_name_for_path(path: str) -> str:
+
+    filename = os.path.basename(path).strip().lower()
+    return os.path.splitext(filename)[0].replace(" ", "_")
+
+
+
+def dataframe_to_json_records(df: pd.DataFrame) -> list[dict[str, Any]]:
+
+    safe_df = df.copy()
+    safe_df = safe_df.astype(object).where(pd.notna(safe_df), None)
+    records: list[dict[str, Any]] = []
+    for row in safe_df.to_dict(orient="records"):
+        safe_row: dict[str, Any] = {}
+        for key, value in row.items():
+            if isinstance(value, pd.Timestamp):
+                safe_row[str(key)] = format_timestamp(value)
+            elif isinstance(value, datetime):
+                safe_row[str(key)] = value.isoformat()
+            else:
+                safe_row[str(key)] = value
+        records.append(safe_row)
+    return records
+
+
+
+def read_supabase_dataset(path: str) -> pd.DataFrame | None:
+
+    project_url, key, table_name = get_supabase_config()
+    if not project_url or not key:
+        return None
+
+    dataset_name = dataset_name_for_path(path)
+    try:
+        response = requests.get(
+            get_supabase_rest_url(project_url, table_name),
+            headers=get_supabase_headers(key),
+            params={"select": "rows", "name": f"eq.{dataset_name}", "limit": "1"},
+            timeout=20,
+        )
+        response.raise_for_status()
+    except Exception as exc:
+        st.session_state["supabase_last_error"] = f"Supabase load failed for {dataset_name}: {exc}"
+        return None
+
+    data = response.json() or []
+    if not data:
+        return None
+
+    rows = data[0].get("rows", [])
+    if not isinstance(rows, list):
+        rows = []
+
+    st.session_state["supabase_last_sync"] = f"Loaded {dataset_name} from Supabase"
+    return pd.DataFrame(rows)
+
+
+
+def write_supabase_dataset(path: str, df: pd.DataFrame) -> bool:
+
+    project_url, key, table_name = get_supabase_config()
+    if not project_url or not key:
+        return False
+
+    dataset_name = dataset_name_for_path(path)
+    payload = {
+        "name": dataset_name,
+        "rows": dataframe_to_json_records(df),
+        "updated_at": format_timestamp(utc_now_timestamp()),
+    }
+    try:
+        response = requests.post(
+            get_supabase_rest_url(project_url, table_name),
+            headers=get_supabase_headers(key, "resolution=merge-duplicates"),
+            params={"on_conflict": "name"},
+            json=payload,
+            timeout=20,
+        )
+        response.raise_for_status()
+    except Exception as exc:
+        st.session_state["supabase_last_error"] = f"Supabase save failed for {dataset_name}: {exc}"
+        return False
+
+    st.session_state["supabase_last_sync"] = f"Saved {dataset_name} to Supabase"
+    st.session_state.pop("supabase_last_error", None)
+    return True
+
+
+
+def load_shared_dataframe(path: str) -> pd.DataFrame | None:
+
+    remote_df = read_supabase_dataset(path)
+    if remote_df is not None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            remote_df.to_csv(path, index=False)
+        except OSError:
+            pass
+        return remote_df
+    return None
+
+
+
+def save_shared_dataframe(path: str, df: pd.DataFrame) -> None:
+
+    write_supabase_dataset(path, df)
 
 def normalize_avigilon_headers(df: pd.DataFrame) -> pd.DataFrame:
 
@@ -2052,6 +2226,7 @@ def save_server_roles(path: str, roles_df: pd.DataFrame) -> pd.DataFrame:
 
     try:
         cleaned.to_csv(path, index=False)
+        save_shared_dataframe(path, cleaned)
         st.session_state.pop("server_role_map_save_error", None)
     except OSError as exc:
         if exc.errno == errno.ENOSPC:
@@ -2071,7 +2246,13 @@ def load_server_roles(path: str, observed_servers: list[str] | None = None) -> p
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
-    if os.path.exists(path):
+    remote_existing = load_shared_dataframe(path)
+
+    if remote_existing is not None:
+
+        existing = remote_existing
+
+    elif os.path.exists(path):
 
         try:
 
@@ -2406,9 +2587,13 @@ def load_notes(notes_path: str) -> pd.DataFrame:
 
     os.makedirs(os.path.dirname(notes_path), exist_ok=True)
 
+    remote_notes = load_shared_dataframe(notes_path)
 
+    if remote_notes is not None:
 
-    if os.path.exists(notes_path):
+        ndf = remote_notes
+
+    elif os.path.exists(notes_path):
 
         ndf = pd.read_csv(notes_path)
 
@@ -2436,6 +2621,9 @@ def load_notes(notes_path: str) -> pd.DataFrame:
 
     ndf["notes"] = ndf["notes"].fillna("")
 
+    if remote_notes is None and supabase_enabled():
+        save_shared_dataframe(notes_path, ndf)
+
     return ndf
 
 
@@ -2459,6 +2647,7 @@ def save_notes(notes_path: str, edited_notes: pd.DataFrame) -> None:
     out = out.drop_duplicates(subset=["key"], keep="last")
 
     out.to_csv(notes_path, index=False)
+    save_shared_dataframe(notes_path, out)
 
 
 
@@ -2546,7 +2735,13 @@ def load_tracking_state(path: str) -> pd.DataFrame:
 
     ]
 
-    if os.path.exists(path):
+    remote_tracking = load_shared_dataframe(path)
+
+    if remote_tracking is not None:
+
+        df = remote_tracking
+
+    elif os.path.exists(path):
 
         df = pd.read_csv(path)
 
@@ -2583,6 +2778,9 @@ def load_tracking_state(path: str) -> pd.DataFrame:
     df["ticket_id"] = df["ticket_id"].fillna("")
 
     df["active"] = df["active"].astype(str).str.strip().str.upper().map({"TRUE": True, "FALSE": False}).fillna(True)
+
+    if remote_tracking is None and supabase_enabled():
+        save_shared_dataframe(path, df)
 
     return df
 
@@ -2653,6 +2851,7 @@ def save_tracking_state(path: str, tracking_df: pd.DataFrame) -> None:
     out = out.drop_duplicates(subset=["key"], keep="last")
 
     out.to_csv(path, index=False)
+    save_shared_dataframe(path, out)
 
 
 def serialize_tracking_snapshot(row: pd.Series) -> str:
@@ -2726,7 +2925,13 @@ def load_tickets(path: str) -> pd.DataFrame:
 
     ]
 
-    if os.path.exists(path):
+    remote_tickets = load_shared_dataframe(path)
+
+    if remote_tickets is not None:
+
+        df = remote_tickets
+
+    elif os.path.exists(path):
 
         df = pd.read_csv(path)
 
@@ -2753,6 +2958,9 @@ def load_tickets(path: str) -> pd.DataFrame:
         df[col] = df[col].fillna("").astype(str)
 
     df["offline_hours_at_creation"] = pd.to_numeric(df["offline_hours_at_creation"], errors="coerce").fillna(0.0)
+
+    if remote_tickets is None and supabase_enabled():
+        save_shared_dataframe(path, df)
 
     return df
 
@@ -2790,6 +2998,7 @@ def save_tickets(path: str, tickets_df: pd.DataFrame) -> None:
     out = out.drop_duplicates(subset=["ticket_key"], keep="last")
 
     out.to_csv(path, index=False)
+    save_shared_dataframe(path, out)
 
 
 def build_historical_missing_devices(
@@ -2987,7 +3196,13 @@ def load_state_transitions(path: str) -> pd.DataFrame:
 
     ]
 
-    if os.path.exists(path):
+    remote_transitions = load_shared_dataframe(path)
+
+    if remote_transitions is not None:
+
+        df = remote_transitions
+
+    elif os.path.exists(path):
 
         df = pd.read_csv(path)
 
@@ -3005,7 +3220,11 @@ def load_state_transitions(path: str) -> pd.DataFrame:
 
             df[col] = ""
 
-    return df[cols].copy()
+    out = df[cols].copy()
+    if remote_transitions is None and supabase_enabled():
+        save_shared_dataframe(path, out)
+
+    return out
 
 
 
@@ -3015,37 +3234,55 @@ def append_state_transitions(path: str, devices_df: pd.DataFrame, prior_tracking
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
+    cols = [
+        "timestamp_utc",
+        "key",
+        "from_state",
+        "to_state",
+        "device_name",
+        "location",
+    ]
+    existing = load_state_transitions(path)
+    if devices_df.empty or prior_tracking_df.empty:
+        return
 
+    prior = prior_tracking_df.copy()
+    for col in ["key", "current_health_state"]:
+        if col not in prior.columns:
+            prior[col] = ""
+    prior["key"] = prior["key"].fillna("").astype(str)
+    prior_state_by_key = prior.set_index("key")["current_health_state"].fillna("").astype(str).to_dict()
 
-    if os.path.exists(path):
+    changes: list[dict[str, Any]] = []
+    observed_iso = format_timestamp(observed_at)
+    for _, row in devices_df.iterrows():
+        key = str(row.get("key", "") or "")
+        if not key:
+            continue
+        previous_state = str(prior_state_by_key.get(key, "") or "")
+        current_state = str(row.get("Health State", row.get("Health", "")) or "")
+        if previous_state and current_state and previous_state != current_state:
+            changes.append(
+                {
+                    "timestamp_utc": observed_iso,
+                    "key": key,
+                    "from_state": previous_state,
+                    "to_state": current_state,
+                    "device_name": str(row.get("Device Name", "") or ""),
+                    "location": str(row.get("Location", "") or ""),
+                }
+            )
 
-        ndf = pd.read_csv(path)
+    if not changes:
+        return
 
-        ndf.columns = [c.strip() for c in ndf.columns]
-
-    else:
-
-        ndf = pd.DataFrame(columns=["key", "disposition", "notes"])
-
-
-
-    for col in ["key", "disposition", "notes"]:
-
-        if col not in ndf.columns:
-
-            ndf[col] = ""
-
-
-
-    ndf = ndf[["key", "disposition", "notes"]].copy()
-
-    ndf["key"] = ndf["key"].astype(str)
-
-    ndf["disposition"] = ndf["disposition"].fillna("")
-
-    ndf["notes"] = ndf["notes"].fillna("")
-
-    return ndf
+    out = pd.concat([existing, pd.DataFrame(changes)], ignore_index=True)
+    for col in cols:
+        if col not in out.columns:
+            out[col] = ""
+    out = out[cols].drop_duplicates().reset_index(drop=True)
+    out.to_csv(path, index=False)
+    save_shared_dataframe(path, out)
 
 
 
@@ -6130,7 +6367,7 @@ def render_ticket_response_assistant() -> None:
         st.session_state["tra_uploads"] = st.session_state.get(upload_key, [])
         action_cols = st.columns(3)
         with action_cols[0]:
-            if st.button("Process Inputs", key="tra_process_inputs", use_container_width=True):
+            if st.button("Process Inputs", key="tra_process_inputs", width="stretch"):
                 st.session_state["tra_output_text"] = ""
                 st.session_state["tra_output_editor"] = ""
                 st.session_state["tra_last_missing_fields"] = []
@@ -6142,7 +6379,7 @@ def render_ticket_response_assistant() -> None:
                         clean_ticket_text(st.session_state.get("tra_extracted_text", "")),
                     )
         with action_cols[1]:
-            if st.button("Re-parse Edited Text", key="tra_reparse_inputs", use_container_width=True):
+            if st.button("Re-parse Edited Text", key="tra_reparse_inputs", width="stretch"):
                 extracted_text = clean_ticket_text(st.session_state.get(extracted_text_key, ""))
                 st.session_state["tra_extracted_text"] = extracted_text
                 st.session_state["tra_raw_input"] = extracted_text
@@ -6151,7 +6388,7 @@ def render_ticket_response_assistant() -> None:
                 if st.session_state.get("tra_detected_workflow") == "Camera Asset Record":
                     generate_ticket_assistant_output_from_state("Camera Asset Record", extracted_text)
         with action_cols[2]:
-            if st.button("Clear", key="tra_clear_all", use_container_width=True):
+            if st.button("Clear", key="tra_clear_all", width="stretch"):
                 reset_ticket_assistant_fields(clear_input=True)
                 st.rerun()
 
@@ -6218,7 +6455,7 @@ def render_ticket_response_assistant() -> None:
                 st.markdown("#### Paid Items")
                 st.dataframe(
                     paid_items_df[["Group", "Itemcode", "Routing Contact(s)", "Routing Note", "Amount", "Quantity"]],
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 
@@ -6244,7 +6481,7 @@ def render_ticket_response_assistant() -> None:
                 with link_cols[0]:
                     st.toggle("Include Thank you", key="tra_include_thanks")
                 with link_cols[1]:
-                    if st.button("Reset Fields", key="tra_reset_fields_top", use_container_width=True):
+                    if st.button("Reset Fields", key="tra_reset_fields_top", width="stretch"):
                         reset_ticket_assistant_fields(clear_input=False)
                         st.rerun()
                 st.text_input("Player Link", key="tra_player_link", placeholder=TICKET_ASSISTANT_DEFAULT_PLAYER_LINK)
@@ -6259,7 +6496,7 @@ def render_ticket_response_assistant() -> None:
                 with qty_cols[1]:
                     st.number_input("Video Quantity", min_value=0, step=1, key="tra_video_quantity")
             else:
-                if st.button("Reset Fields", key="tra_reset_fields_standard", use_container_width=True):
+                if st.button("Reset Fields", key="tra_reset_fields_standard", width="stretch"):
                     reset_ticket_assistant_fields(clear_input=False)
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
@@ -6270,12 +6507,12 @@ def render_ticket_response_assistant() -> None:
         )
         button_cols = st.columns([1.15, 0.85])
         with button_cols[0]:
-            if st.button("Generate Response", key="tra_generate_response", use_container_width=True):
+            if st.button("Generate Response", key="tra_generate_response", width="stretch"):
                 extracted_text = clean_ticket_text(st.session_state.get(extracted_text_key, ""))
                 st.session_state["tra_extracted_text"] = extracted_text
                 generate_ticket_assistant_output_from_state(effective_workflow, extracted_text)
         with button_cols[1]:
-            if st.button("Reset Fields", key="tra_reset_fields_bottom", use_container_width=True):
+            if st.button("Reset Fields", key="tra_reset_fields_bottom", width="stretch"):
                 reset_ticket_assistant_fields(clear_input=False)
                 st.rerun()
 
@@ -6294,14 +6531,14 @@ def render_ticket_response_assistant() -> None:
                 data=editor_text or "",
                 file_name="ticket-response.txt",
                 mime="text/plain",
-                use_container_width=True,
+                width="stretch",
             )
         with copy_cols[2]:
             if effective_workflow == "Camera Asset Record" and editor_text.strip():
                 st.link_button(
                     "Create Helpdesk Email",
                     build_ticket_assistant_helpdesk_mailto(fields, editor_text),
-                    use_container_width=True,
+                    width="stretch",
                 )
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -7874,7 +8111,7 @@ with workspace_button_container:
         if st.button(
             workspace_button_labels.get(workspace_name, workspace_name),
             key=f"workspace_btn_{workspace_name}",
-            use_container_width=True,
+            width="stretch",
             type="primary" if st.session_state.get("app_workspace") == workspace_name else "secondary",
         ):
             st.session_state["app_workspace"] = workspace_name
@@ -7906,7 +8143,7 @@ for area_name in area_options:
     if st.sidebar.button(
         area_button_labels.get(area_name, area_name),
         key=f"area_btn_{selected_workspace}_{area_name}",
-        use_container_width=True,
+        width="stretch",
         type="primary" if st.session_state.get(area_state_key, area_options[0]) == area_name else "secondary",
     ):
         st.session_state[area_state_key] = area_name
@@ -7944,7 +8181,7 @@ if selected_workspace == "Health Status":
         source_mode = "Uploaded file" if uploaded is not None else "CSV path"
         st.session_state.site_health_source_mode = source_mode
         if uploaded is not None:
-            if st.button("Clear Uploaded File", use_container_width=True):
+            if st.button("Clear Uploaded File", width="stretch"):
                 st.session_state.site_health_upload_nonce += 1
                 st.session_state.site_health_source_mode = "CSV path"
                 st.session_state.site_health_last_upload_signature = None
@@ -8151,6 +8388,14 @@ if missing:
 
 if selected_workspace == "Health Status":
     st.sidebar.caption(f"Loaded rows: {len(df):,}")
+    if supabase_enabled():
+        st.sidebar.caption("Storage: Supabase sync enabled")
+        if st.session_state.get("supabase_last_sync"):
+            st.sidebar.caption(str(st.session_state["supabase_last_sync"]))
+    else:
+        st.sidebar.caption("Storage: local CSV files")
+    if st.session_state.get("supabase_last_error"):
+        st.sidebar.warning(str(st.session_state["supabase_last_error"]))
     st.sidebar.markdown("---")
 
 
@@ -8688,13 +8933,13 @@ if selected_workspace == "Health Status":
         )
         st.sidebar.button(
             ":material/settings:  Settings",
-            use_container_width=True,
+            width="stretch",
             key="sidebar_settings_button",
             type="secondary",
         )
         generate_weekly_digest_clicked = st.sidebar.button(
             "Generate Weekly Digest",
-            use_container_width=True,
+            width="stretch",
             key="sidebar_generate_weekly_digest_bottom",
             type="secondary",
         )
@@ -8703,7 +8948,7 @@ if selected_workspace == "Health Status":
             data=export_frame.to_csv(index=False).encode("utf-8"),
             file_name=export_filename,
             mime="text/csv",
-            use_container_width=True,
+            width="stretch",
             key="sidebar_export_report",
             type="primary",
         )
@@ -9181,7 +9426,7 @@ def render_operations_snapshot(
 
                 final_chart,
 
-                use_container_width=True,
+                width="stretch",
 
                 key=chart_key,
 
@@ -10747,7 +10992,7 @@ def render_operations_snapshot(
 
         with action_col:
 
-            if st.button("Clear Chart Selection", key="ops_snapshot_clear_selection", use_container_width=True):
+            if st.button("Clear Chart Selection", key="ops_snapshot_clear_selection", width="stretch"):
 
                 st.session_state.pop("ops_snapshot_selected_health", None)
 
@@ -11132,7 +11377,7 @@ def render_data_editor(
 
             st.markdown('<div class="issues-control-label-spacer">Action</div>', unsafe_allow_html=True)
 
-            if st.button("Refresh Ping Status", key="refresh_ping_status", use_container_width=True):
+            if st.button("Refresh Ping Status", key="refresh_ping_status", width="stretch"):
 
                 st.session_state.ping_status_by_ip = {}
 
@@ -11506,15 +11751,15 @@ def render_data_editor(
 
             edited[inline_tdx_col]
 
-            .fillna(False)
-
-            .astype(str)
+            .astype("string")
 
             .str.strip()
 
             .str.lower()
 
             .isin(["true", "1", "yes", "y", "t"])
+
+            .fillna(False)
 
         )
 
@@ -11708,7 +11953,7 @@ def render_action_required_ticket_queue(ticket_subset: pd.DataFrame):
 
         all_selected = len(all_keys) > 0 and all_keys.issubset(selected_keys)
 
-        if st.button("Deselect All" if all_selected else "Select All", key="tab2_select_all", use_container_width=True):
+        if st.button("Deselect All" if all_selected else "Select All", key="tab2_select_all", width="stretch"):
 
             st.session_state.selected_tickets = set() if all_selected else set(all_keys)
 
@@ -11718,7 +11963,7 @@ def render_action_required_ticket_queue(ticket_subset: pd.DataFrame):
 
     with c2:
 
-        if st.button(f"Send Help Ticket Email ({selected_count})", key="tab2_create_help_ticket", use_container_width=True, disabled=selected_count == 0):
+        if st.button(f"Send Help Ticket Email ({selected_count})", key="tab2_create_help_ticket", width="stretch", disabled=selected_count == 0):
 
             selected_rows = tickets_df[
 
@@ -11798,7 +12043,7 @@ def render_action_required_ticket_queue(ticket_subset: pd.DataFrame):
 
     with c3:
 
-        if st.button(f"Acknowledge Selected ({selected_count})", key="tab2_ack_selected", use_container_width=True, disabled=selected_count == 0):
+        if st.button(f"Acknowledge Selected ({selected_count})", key="tab2_ack_selected", width="stretch", disabled=selected_count == 0):
 
             ack_mask = (
 
@@ -12046,7 +12291,7 @@ def render_tickets_editor(ticket_subset: pd.DataFrame):
 
     save_col, helper_col = st.columns([0.24, 0.76])
     with save_col:
-        if st.button("Save Tickets", key="save_tickets", use_container_width=True):
+        if st.button("Save Tickets", key="save_tickets", width="stretch"):
 
             save_tickets_from_editor(ticket_save_df)
     with helper_col:
@@ -12734,7 +12979,7 @@ def render_overview_section() -> None:
             st.button(
                 scope_labels[scope_key],
                 key=f"overview_scope_tab_{scope_key}",
-                use_container_width=True,
+                width="stretch",
                 type="primary" if is_active else "secondary",
                 on_click=handle_scope_click,
                 args=(scope_key,)
@@ -12784,7 +13029,7 @@ def render_overview_section() -> None:
     overview_all_cols += [c for c in all_df.columns if c not in overview_all_cols]
 
     with controls_right:
-        with st.popover("Columns", use_container_width=True):
+        with st.popover("Columns", width="stretch"):
             selected_extra_cols: list[str] = []
             for col_name in overview_all_cols:
                 visible_label = AGGRID_HEADER_LABELS.get(col_name, col_name)
@@ -13244,11 +13489,11 @@ def render_action_required_tab():
 
     save_missing_col, open_missing_col = st.columns([0.28, 0.72])
     with save_missing_col:
-        if st.button("Save Missing Device Status", key="save_missing_device_status", use_container_width=True):
+        if st.button("Save Missing Device Status", key="save_missing_device_status", width="stretch"):
             save_notes_from_editor(notes_save_source)
     with open_missing_col:
         open_disabled = len(historical_selected) == 0
-        if st.button(f"Open Selected In Ticket Dashboard ({len(historical_selected)})", key="open_missing_in_ticket_dashboard", use_container_width=True, disabled=open_disabled):
+        if st.button(f"Open Selected In Ticket Dashboard ({len(historical_selected)})", key="open_missing_in_ticket_dashboard", width="stretch", disabled=open_disabled):
             save_notes_from_editor(notes_save_source)
             refreshed_missing_df = build_historical_missing_devices(tracking_df, load_notes(NOTES_PATH), tickets_df, filtered_devices, observed_at)
             selected_for_tickets = refreshed_missing_df[refreshed_missing_df["key"].astype(str).isin(historical_selected)].copy()
