@@ -1745,6 +1745,8 @@ SERVER_ROLE_MAP_PATH = os.path.join("data", "server_roles.csv")
 
 SUPABASE_DATASET_TABLE = "app_datasets"
 
+CURRENT_SITE_HEALTH_DATASET = "current_site_health_csv"
+
 DEFAULT_SERVER_ROLE_ASSIGNMENTS = {
     **{f"avigilon-camAI-client{i}.lsu.edu": "Primary" for i in range(1, 16)},
     **{f"avigilon-camAI-client{i}.lsu.edu": "Secondary" for i in range(16, 21)},
@@ -1934,6 +1936,100 @@ def load_shared_dataframe(path: str) -> pd.DataFrame | None:
 def save_shared_dataframe(path: str, df: pd.DataFrame) -> None:
 
     write_supabase_dataset(path, df)
+
+
+
+def read_supabase_dataset_rows(dataset_name: str) -> list[dict[str, Any]] | None:
+
+    project_url, key, table_name = get_supabase_config()
+    if not project_url or not key:
+        return None
+
+    try:
+        response = requests.get(
+            get_supabase_rest_url(project_url, table_name),
+            headers=get_supabase_headers(key),
+            params={"select": "rows", "name": f"eq.{dataset_name}", "limit": "1"},
+            timeout=20,
+        )
+        response.raise_for_status()
+    except Exception as exc:
+        st.session_state["supabase_last_error"] = f"Supabase load failed for {dataset_name}: {exc}"
+        return None
+
+    data = response.json() or []
+    if not data:
+        return None
+
+    rows = data[0].get("rows", [])
+    return rows if isinstance(rows, list) else []
+
+
+
+def write_supabase_dataset_rows(dataset_name: str, rows: list[dict[str, Any]]) -> bool:
+
+    project_url, key, table_name = get_supabase_config()
+    if not project_url or not key:
+        return False
+
+    payload = {
+        "name": dataset_name,
+        "rows": rows,
+        "updated_at": format_timestamp(utc_now_timestamp()),
+    }
+    try:
+        response = requests.post(
+            get_supabase_rest_url(project_url, table_name),
+            headers=get_supabase_headers(key, "resolution=merge-duplicates"),
+            params={"on_conflict": "name"},
+            json=payload,
+            timeout=20,
+        )
+        response.raise_for_status()
+    except Exception as exc:
+        st.session_state["supabase_last_error"] = f"Supabase save failed for {dataset_name}: {exc}"
+        return False
+
+    st.session_state["supabase_last_sync"] = f"Saved {dataset_name} to Supabase"
+    st.session_state.pop("supabase_last_error", None)
+    return True
+
+
+
+def load_shared_site_health_upload() -> dict[str, Any] | None:
+
+    rows = read_supabase_dataset_rows(CURRENT_SITE_HEALTH_DATASET)
+    if not rows:
+        return None
+
+    report = rows[0]
+    if not isinstance(report, dict) or not report.get("content_b64"):
+        return None
+    return report
+
+
+
+def save_shared_site_health_upload(file_name: str, raw_bytes: bytes) -> None:
+
+    if not raw_bytes:
+        return
+
+    payload = {
+        "file_name": str(file_name or "site-health.csv"),
+        "content_b64": _b64.b64encode(raw_bytes).decode("ascii"),
+        "size": len(raw_bytes),
+        "uploaded_at": format_timestamp(utc_now_timestamp()),
+    }
+    write_supabase_dataset_rows(CURRENT_SITE_HEALTH_DATASET, [payload])
+
+
+
+def shared_site_health_bytes(report: dict[str, Any]) -> bytes:
+
+    try:
+        return _b64.b64decode(str(report.get("content_b64", "")))
+    except Exception:
+        return b""
 
 def normalize_avigilon_headers(df: pd.DataFrame) -> pd.DataFrame:
 
@@ -8172,13 +8268,32 @@ if selected_workspace == "Health Status":
             value=DEFAULT_SITE_HEALTH_PATH,
             help="Default is the repo-local export next to app.py.",
         )
+        use_local_csv = st.checkbox(
+            "Use local path on this computer",
+            value=False,
+            help="Leave off to use the newest shared Supabase report when no file is uploaded.",
+        )
         uploaded = st.file_uploader(
             "Upload Site Health CSV",
             type=["csv"],
             key=f"site_health_upload_{st.session_state.site_health_upload_nonce}",
-            help="Use this for a temporary local file when you do not want to change the path field.",
+            help="Uploaded files become the shared current report for other app sessions.",
         )
-        source_mode = "Uploaded file" if uploaded is not None else "CSV path"
+        shared_site_health_report = None
+        if uploaded is None and not use_local_csv and supabase_enabled():
+            shared_site_health_report = load_shared_site_health_upload()
+
+        if uploaded is not None:
+            source_mode = "Uploaded file"
+        elif shared_site_health_report is not None:
+            source_mode = "Shared Supabase report"
+            shared_file_name = str(shared_site_health_report.get("file_name", "site-health.csv") or "site-health.csv")
+            shared_uploaded_at = str(shared_site_health_report.get("uploaded_at", "") or "")
+            st.caption(f"Using shared report: {shared_file_name}")
+            if shared_uploaded_at:
+                st.caption(f"Uploaded: {shared_uploaded_at}")
+        else:
+            source_mode = "CSV path"
         st.session_state.site_health_source_mode = source_mode
         if uploaded is not None:
             if st.button("Clear Uploaded File", width="stretch"):
@@ -8190,6 +8305,7 @@ if selected_workspace == "Health Status":
     hard_reset_clicked = False
 else:
     uploaded = None
+    shared_site_health_report = None
     source_mode = st.session_state.site_health_source_mode
     load_clicked = False
     hard_reset_clicked = False
@@ -8296,6 +8412,10 @@ if source_mode == "Uploaded file":
 
     should_load = load_clicked or (uploaded is not None)
 
+elif source_mode == "Shared Supabase report":
+
+    should_load = shared_site_health_report is not None
+
 else:
 
     should_load = load_clicked or os.path.exists(csv_path)
@@ -8305,6 +8425,10 @@ if not should_load:
     if source_mode == "Uploaded file":
 
         st.info("Select an uploaded CSV file and click **Load / Reload**.")
+
+    elif source_mode == "Shared Supabase report":
+
+        st.info("No shared Supabase Site Health report has been uploaded yet.")
 
     else:
 
@@ -8338,7 +8462,35 @@ try:
 
         active_source_label = f"Uploaded file: {uploaded.name}"
 
-        df = parse_site_health_csv_bytes(uploaded.getvalue())
+        uploaded_bytes = uploaded.getvalue()
+
+        df = parse_site_health_csv_bytes(uploaded_bytes)
+
+        save_shared_site_health_upload(uploaded.name, uploaded_bytes)
+
+    elif source_mode == "Shared Supabase report":
+
+        if shared_site_health_report is None:
+
+            st.info("No shared Supabase Site Health report has been uploaded yet.")
+
+            st.stop()
+
+        shared_bytes = shared_site_health_bytes(shared_site_health_report)
+
+        if not shared_bytes:
+
+            st.error("The shared Supabase Site Health report is empty or could not be decoded.")
+
+            st.stop()
+
+        active_source_label = f"Shared Supabase report: {shared_site_health_report.get('file_name', 'site-health.csv')}"
+
+        active_source_detail = f"Shared upload time: {shared_site_health_report.get('uploaded_at', '')}"
+
+        active_source_signature = f"supabase:{shared_site_health_report.get('uploaded_at', '')}:{shared_site_health_report.get('size', '')}"
+
+        df = parse_site_health_csv_bytes(shared_bytes)
 
     else:
 

@@ -46,7 +46,7 @@ url = "https://your-project.supabase.co"
 key = "your-anon-or-service-role-key"
 ```
 
-The app still writes local CSV files as a fallback/cache. When Supabase secrets and the `app_datasets` table are available, loads prefer Supabase and saves update Supabase.
+The app still writes local CSV files as a fallback/cache. When Supabase secrets and the `app_datasets` table are available, loads prefer Supabase and saves update Supabase. Uploaded Site Health CSV files are also saved as the shared current report, so another app session can load the newest report automatically without re-uploading it.
 
 ## Optional features
 
