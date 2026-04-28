@@ -2053,6 +2053,9 @@ def normalize_avigilon_headers(df: pd.DataFrame) -> pd.DataFrame:
 
     df.columns = [column_mapping.get(c.strip().lower(), c.strip()) for c in df.columns]
 
+    if "MAC Address" in df.columns:
+        df["MAC Address"] = format_mac_address_series(df["MAC Address"])
+
     return df
 
 
@@ -2228,6 +2231,32 @@ def clean_text_series(s: pd.Series) -> pd.Series:
         .replace({"nan": "", "NaN": "", "None": "", "none": "", "<NA>": "", "<na>": ""})
 
     )
+
+
+
+def format_mac_address_value(value: Any) -> str:
+
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    hex_runs = re.findall(r"[0-9A-Fa-f]{12}", text)
+    if hex_runs:
+        raw = hex_runs[-1].upper()
+        return ":".join(raw[i : i + 2] for i in range(0, 12, 2))
+
+    compact = re.sub(r"[^0-9A-Fa-f]", "", text)
+    if len(compact) == 12:
+        raw = compact.upper()
+        return ":".join(raw[i : i + 2] for i in range(0, 12, 2))
+
+    return text.upper()
+
+
+
+def format_mac_address_series(series: pd.Series) -> pd.Series:
+
+    return series.map(format_mac_address_value)
 
 
 
@@ -11196,7 +11225,7 @@ def render_mobile_filtered_cameras_table(data_subset: pd.DataFrame) -> None:
         default_visible_cols=[
             "Health",
             "Device Name Base",
-            "key",
+            "MAC Address",
             "IP Address",
             "Location",
             "Ping Status",
@@ -11217,7 +11246,7 @@ preferred_cols = [
 
     "Device Name Base",
 
-    "key",
+    "MAC Address",
 
     "IP Address",
 
@@ -11247,7 +11276,9 @@ AGGRID_HEADER_LABELS = {
 
     "Device Name Base": "Camera Name",
 
-    "key": "MAC Address",
+    "key": "Tracking Key",
+
+    "MAC Address": "MAC Address",
 
     "Offline For (hrs)": "Offline Hrs",
 
@@ -11274,6 +11305,8 @@ CAMERA_GRID_WIDTHS_ALL = {
     "Device Name Base": 57,
 
     "key": 18,
+
+    "MAC Address": 18,
 
     "IP Address": 14,
 
@@ -11573,6 +11606,9 @@ def render_data_editor(
 
     grid_df = data_subset[available_cols].copy()
 
+    if "MAC Address" in grid_df.columns:
+        grid_df["MAC Address"] = format_mac_address_series(grid_df["MAC Address"])
+
     display_df = grid_df[display_cols].copy()
 
 
@@ -11584,6 +11620,7 @@ def render_data_editor(
         "Health": 130,
         "Device Name Base": 250,
         "key": 125,
+        "MAC Address": 150,
         "IP Address": 90,
         "Primary Connection": 240,
         "Secondary Connection": 240,
@@ -11599,6 +11636,7 @@ def render_data_editor(
         "Health": 170,
         "Device Name Base": 320,
         "key": 170,
+        "MAC Address": 185,
         "IP Address": 145,
         "Primary Connection": 310,
         "Secondary Connection": 310,
@@ -12642,7 +12680,7 @@ def render_retention_tab(retention_scope: pd.DataFrame, observed_at_ts: pd.Times
 
         "Device Name Base",
 
-        "key",
+        "MAC Address",
 
         "IP Address",
 
@@ -13207,11 +13245,14 @@ def render_overview_section() -> None:
         overview_visible_cols = [c for c in overview_default_cols if c in filtered_table_df.columns]
     ordered_visible_cols = [c for c in overview_all_cols if c in overview_visible_cols]
     overview_table_df = filtered_table_df[ordered_visible_cols].copy()
+    if "MAC Address" in overview_table_df.columns:
+        overview_table_df["MAC Address"] = format_mac_address_series(overview_table_df["MAC Address"])
 
     overview_column_config = {
         "Health": st.column_config.TextColumn("Health", width="medium"),
         "Device Name Base": st.column_config.TextColumn("Camera Name", width="large"),
-        "key": st.column_config.TextColumn("MAC Address", width="medium"),
+        "key": st.column_config.TextColumn("Tracking Key", width="medium"),
+        "MAC Address": st.column_config.TextColumn("MAC Address", width="medium"),
         "IP Address": st.column_config.TextColumn("IP Address", width="medium"),
         "Location": st.column_config.TextColumn("Location", width="large"),
         "Ping Status": st.column_config.TextColumn("Ping Status", width="medium"),
@@ -13543,7 +13584,7 @@ def render_action_required_tab():
 
             "Device Name Base",
 
-            "key",
+            "MAC Address",
 
             "IP Address",
 
